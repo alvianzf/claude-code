@@ -23,7 +23,7 @@ The frontend is a static SPA that talks to the backend only via `/api/v1/*` JSON
 | Field        | Type   | Notes                                |
 | ------------ | ------ | ------------------------------------- |
 | id           | string | UUID v4, generated server-side        |
-| username     | string | unique, case-insensitive               |
+| username     | string | unique, case-sensitive                 |
 | passwordHash | string | bcrypt hash, never sent to client      |
 | fullName     | string |                                         |
 | role         | enum   | `admin` \| `user`                      |
@@ -186,7 +186,7 @@ All responses are JSON. Errors follow the shape:
 
 ## 6. Validation Rules
 
-- `username`: required, 3–32 chars, alphanumeric + underscore, unique (case-insensitive).
+- `username`: required, 3–32 chars, alphanumeric + underscore, unique (case-sensitive).
 - `password`: required on create, minimum 6 chars when provided.
 - `fullName`: required, 1–100 chars.
 - `role`: must be `admin` or `user`.
@@ -211,7 +211,67 @@ All responses are JSON. Errors follow the shape:
 
 ---
 
-## 9. Definition of Done
+## 9. Visual Design System
+
+Style: **modern SaaS dashboard** (Linear/Vercel/Stripe-inspired). Defined as CSS custom properties (design tokens) in `client/src/index.css` and reused across pages/components.
+
+### 9.1 Color Palette
+
+| Token | Value | Usage |
+| --- | --- | --- |
+| `--color-bg` | `#f6f7fb` | App background |
+| `--color-surface` | `#ffffff` | Cards, modals, table |
+| `--color-border` | `#e6e8f0` | Hairline borders |
+| `--color-text` | `#11151f` | Primary text |
+| `--color-text-muted` | `#6b7280` | Secondary/labels |
+| `--gradient-primary` | `linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)` | Primary buttons, brand mark, active/highlight accents |
+| `--color-accent` | `#6366f1` | Links, focus rings, icons |
+| `--color-success` | `#16a34a` | Success states |
+| `--color-danger` | `#dc2626` | Destructive actions (Delete) |
+| `--color-admin` | `#7c3aed` | Admin role badge |
+| `--color-user` | `#0ea5e9` | User role badge |
+
+### 9.2 Typography
+
+- Font family: `"Inter", system-ui, -apple-system, "Segoe UI", sans-serif` (loaded via `@fontsource` or system fallback if offline).
+- Scale: page title `1.75rem/700`, section heading `1.125rem/600`, body `0.9375rem/400`, muted/meta `0.8125rem/500`.
+- Numeric stats (summary cards) use a larger weight (`2rem/700`) for emphasis.
+
+### 9.3 Surfaces, Spacing & Radius
+
+- Card/modal/table surfaces: `background: var(--color-surface)`, `border-radius: 16px`, `box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 8px 24px -8px rgba(16,24,40,0.10)`.
+- Spacing scale via tokens: `--space-1: 4px` through `--space-8: 48px` (4px base unit).
+- Page content max-width ~1200px, centered, with responsive horizontal padding.
+
+### 9.4 Buttons & Interactive States
+
+- Primary button: `var(--gradient-primary)` background, white text, `border-radius: 10px`, hover = slight lift (`transform: translateY(-1px)`) + increased shadow, transition `150ms ease`.
+- Secondary/ghost button: surface background, border `1px solid var(--color-border)`, hover = subtle background tint.
+- Destructive button (Delete): `--color-danger` text/border, filled on hover.
+- Inputs: `border-radius: 10px`, `1px solid var(--color-border)`, focus state = accent-colored ring (`box-shadow: 0 0 0 3px rgba(99,102,241,0.15)`, `border-color: var(--color-accent)`).
+
+### 9.5 Role Badges
+
+- Pill-shaped (`border-radius: 999px`), small uppercase label.
+- `admin` → tinted purple background (`--color-admin` at low opacity) with `--color-admin` text.
+- `user` → tinted blue background (`--color-user` at low opacity) with `--color-user` text.
+
+### 9.6 Motion
+
+- Page/card entrance: fade + slight upward slide (`opacity 0→1`, `translateY(8px→0)`, ~`300ms ease-out`), respecting `prefers-reduced-motion`.
+- Modal: overlay fades in, modal panel scales/slides in (`scale(0.97)→1`, `translateY(8px)→0`, ~`200ms ease-out`).
+- Table rows / cards: hover state transitions shadow/background over `150ms`.
+- Buttons: hover/active transform + shadow transitions over `150ms`.
+
+### 9.7 Layout per Page
+
+- **Login**: centered card on a softly gradient-tinted background, brand mark using `--gradient-primary`, card uses the surface/shadow/radius tokens above.
+- **Dashboard**: sticky header with brand mark + user info + Logout; summary cards in a responsive grid (3 → 2 → 1 columns) with large numeric stats and icon accents; user table inside a card with hover row highlight, role badges, and grouped action buttons.
+- **User Modal**: overlay with backdrop blur, centered panel using card tokens, entrance animation per 9.6, clear field grouping and inline validation styling (red border + helper text using `--color-danger`).
+
+---
+
+## 10. Definition of Done
 
 - [ ] Login issues a valid JWT and persists session across refresh.
 - [ ] Logout clears client-side token.

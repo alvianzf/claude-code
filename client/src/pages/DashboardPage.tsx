@@ -104,7 +104,10 @@ export function DashboardPage() {
   return (
     <div className="dashboard-page">
       <header className="dashboard-header">
-        <h1 className="dashboard-title">User Management</h1>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">U</span>
+          <h1 className="dashboard-title">User Management</h1>
+        </div>
         <div className="dashboard-header-right">
           {currentUser && (
             <div className="current-user-info">
@@ -120,7 +123,7 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <main className="dashboard-main">
+      <main className="dashboard-main animate-in">
         {error && (
           <div className="alert alert-error" role="alert">
             {error}{" "}

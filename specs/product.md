@@ -115,6 +115,26 @@ API is documented with OpenAPI 3.0. Swagger UI is served at `/api/docs`.
 
 ---
 
+## Visual Design
+
+The UI should feel like a polished, modern SaaS dashboard (in the
+spirit of Linear, Vercel, or Stripe's dashboard) — not a bare-bones
+admin panel.
+
+* Clean white/light-neutral surfaces with soft, layered shadows for
+  cards and modals
+* A vibrant accent gradient used for primary actions, branding, and
+  highlights
+* Polished typography with a clear hierarchy (display headings, body
+  text, muted secondary text)
+* Generous spacing and rounded corners (cards, buttons, inputs)
+* Subtle motion: hover lift/transition on interactive elements,
+  fade/slide-in transitions for the modal
+* Role badges and status indicators use color to communicate meaning
+  at a glance
+
+---
+
 ## Constraints
 
 * TypeScript required on frontend and backend

@@ -37,8 +37,12 @@ export function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <h1 className="login-title">User Management</h1>
+      <div className="login-card animate-in">
+        <div className="brand login-brand">
+          <span className="brand-mark" aria-hidden="true">U</span>
+          <span className="brand-name">User Management</span>
+        </div>
+        <h1 className="login-title">Welcome back</h1>
         <p className="login-subtitle">Sign in to your account</p>
 
         {error && (

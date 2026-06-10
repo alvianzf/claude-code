@@ -84,7 +84,7 @@ export function getUserById(id: string): Promise<User | undefined> {
 export function getUserByUsername(username: string): Promise<User | undefined> {
   return enqueue(async () => {
     const data = await readFileRaw();
-    return data.users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+    return data.users.find((u) => u.username === username);
   });
 }
 
