@@ -40,7 +40,7 @@ sudo npm install -g pm2
 
 ---
 
-## 4. Clone and Build the Application
+## 4. Clone the Repository
 
 ```bash
 cd /var/www
@@ -48,16 +48,50 @@ sudo mkdir simplefe && sudo chown $USER:$USER simplefe
 git clone <your-repo-url> simplefe
 cd simplefe
 
-# Install dependencies for both workspaces
+# Install dependencies for both workspaces (root, client, server)
 npm install
-
-# Build backend (TypeScript -> dist/) and frontend (static assets -> client/dist/)
-npm run build
 ```
 
 ---
 
-## 5. Configure the Backend Environment
+## 5. Build the Frontend
+
+The frontend is a static Vite/React app. The API client uses a
+relative base URL (`/api/v1`), so no build-time environment variables
+are required — Nginx will proxy `/api/*` to the backend (configured in
+step 9).
+
+```bash
+cd /var/www/simplefe
+npm run build -w client
+```
+
+This produces static assets in `client/dist/`:
+
+```bash
+ls client/dist
+# index.html  assets/
+```
+
+This is the directory Nginx will serve as the site root.
+
+---
+
+## 6. Build and Configure the Backend
+
+```bash
+cd /var/www/simplefe
+npm run build -w server
+```
+
+This compiles the Express/TypeScript API to `server/dist/`.
+
+> Tip: `npm run build` at the repo root runs both of the above in one
+> step (`build -w server && build -w client`).
+
+---
+
+## 7. Configure the Backend Environment
 
 ```bash
 cd /var/www/simplefe/server
@@ -86,7 +120,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 ---
 
-## 6. Run the Backend with PM2
+## 8. Run the Backend with PM2
 
 From `/var/www/simplefe/server`:
 
@@ -113,7 +147,7 @@ pm2 restart simplefe-api
 
 ---
 
-## 7. Configure Nginx
+## 9. Configure Nginx
 
 The built frontend (`client/dist/`) is served as static files by
 Nginx. API requests (`/api/*`) are reverse-proxied to the PM2-managed
@@ -157,7 +191,7 @@ sudo systemctl reload nginx
 
 ---
 
-## 8. (Optional) Enable HTTPS with Let's Encrypt
+## 10. (Optional) Enable HTTPS with Let's Encrypt
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -177,7 +211,7 @@ pm2 restart simplefe-api
 
 ---
 
-## 9. Verify the Deployment
+## 11. Verify the Deployment
 
 ```bash
 # Frontend
@@ -195,7 +229,7 @@ immediately**.
 
 ---
 
-## 10. Updating the Application
+## 12. Updating the Application
 
 ```bash
 cd /var/www/simplefe
@@ -210,7 +244,7 @@ immediately — no Nginx restart needed.
 
 ---
 
-## 11. Firewall (Optional but Recommended)
+## 13. Firewall (Optional but Recommended)
 
 ```bash
 sudo ufw allow OpenSSH
