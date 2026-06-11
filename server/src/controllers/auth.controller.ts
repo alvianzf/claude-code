@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import * as userStore from "../services/userStore.js";
+import * as tenantStore from "../services/tenantStore.js";
 import { comparePassword } from "../utils/password.js";
 import { signToken } from "../utils/jwt.js";
 import { toPublicUser } from "../utils/serialize.js";
@@ -22,7 +23,23 @@ export async function login(req: Request, res: Response): Promise<void> {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid username or password");
   }
 
-  const token = signToken({ sub: user.id, username: user.username, role: user.role });
+  if (user.tenantId !== null) {
+    const tenant = await tenantStore.getTenantById(user.tenantId);
+    if (tenant && tenant.status === "suspended") {
+      throw new ApiError(
+        403,
+        "TENANT_SUSPENDED",
+        "Your organization's account has been suspended"
+      );
+    }
+  }
+
+  const token = signToken({
+    sub: user.id,
+    username: user.username,
+    role: user.role,
+    tenantId: user.tenantId,
+  });
   res.status(200).json({ token, user: toPublicUser(user) });
 }
 

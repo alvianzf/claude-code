@@ -23,6 +23,8 @@ export function LoginPage() {
       const code = getApiErrorCode(err);
       if (code === "INVALID_CREDENTIALS") {
         setError("Invalid username or password");
+      } else if (code === "TENANT_SUSPENDED") {
+        setError("Your organization's account has been suspended. Contact your administrator.");
       } else if (axios.isAxiosError(err) && !err.response) {
         setError("Unable to reach the server. Please check your connection and try again.");
       } else if (axios.isAxiosError(err) && (err.response?.status ?? 0) >= 500) {

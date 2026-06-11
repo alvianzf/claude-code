@@ -1,11 +1,11 @@
 import "dotenv/config";
 import { createApp } from "./app.js";
-import * as userStore from "./services/userStore.js";
+import * as seed from "./services/seed.js";
 
 const PORT = process.env.PORT ?? 4000;
 
 async function main() {
-  await userStore.init();
+  await seed.seedIfNeeded();
   const app = await createApp();
 
   app.listen(PORT, () => {

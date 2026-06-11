@@ -1,10 +1,10 @@
-.dashboard-page {
+.tenants-page {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
 }
 
-.dashboard-header {
+.tenants-header {
   position: sticky;
   top: 0;
   z-index: 10;
@@ -19,11 +19,11 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.dashboard-title {
+.tenants-title {
   font-size: 1.25rem;
 }
 
-.dashboard-header-right {
+.tenants-header-right {
   display: flex;
   align-items: center;
   gap: var(--space-5);
@@ -42,17 +42,7 @@
   font-size: 0.9375rem;
 }
 
-.role-badge[data-role="admin"] {
-  background-color: var(--color-admin-soft);
-  color: var(--color-admin);
-}
-
-.role-badge[data-role="user"] {
-  background-color: var(--color-user-soft);
-  color: var(--color-user);
-}
-
-.dashboard-main {
+.tenants-main {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -116,18 +106,8 @@
   letter-spacing: -0.02em;
 }
 
-.summary-card-value-text {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.summary-card-sub {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-}
-
-/* Users table section */
-.users-section {
+/* Tenants table section */
+.tenants-section {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -135,7 +115,7 @@
   padding: var(--space-5);
 }
 
-.users-section-header {
+.tenants-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -143,36 +123,36 @@
   gap: var(--space-3);
 }
 
-.users-section-header h2 {
+.tenants-section-header h2 {
   font-size: 1.125rem;
   font-weight: 600;
 }
 
-.users-loading,
-.users-empty {
+.tenants-loading,
+.tenants-empty {
   color: var(--color-text-muted);
   padding: var(--space-6) 0;
   text-align: center;
 }
 
-.users-table-wrapper {
+.tenants-table-wrapper {
   overflow-x: auto;
 }
 
-.users-table {
+.tenants-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.users-table th,
-.users-table td {
+.tenants-table th,
+.tenants-table td {
   text-align: left;
   padding: var(--space-3) var(--space-3);
   border-bottom: 1px solid var(--color-border);
   font-size: 0.9375rem;
 }
 
-.users-table th {
+.tenants-table th {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -181,15 +161,15 @@
   white-space: nowrap;
 }
 
-.users-table tbody tr {
+.tenants-table tbody tr {
   transition: background-color var(--transition-fast);
 }
 
-.users-table tbody tr:hover {
+.tenants-table tbody tr:hover {
   background-color: var(--color-bg);
 }
 
-.users-table tbody tr:last-child td {
+.tenants-table tbody tr:last-child td {
   border-bottom: none;
 }
 
@@ -199,9 +179,13 @@
   white-space: nowrap;
 }
 
+.btn-icon {
+  padding: 7px 9px;
+}
+
 /* Tablet */
 @media (max-width: 900px) {
-  .dashboard-main {
+  .tenants-main {
     padding: var(--space-5) var(--space-4);
   }
 
@@ -212,14 +196,14 @@
 
 /* Mobile */
 @media (max-width: 640px) {
-  .dashboard-header {
+  .tenants-header {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
   }
 
-  .dashboard-header-right {
+  .tenants-header-right {
     width: 100%;
     justify-content: space-between;
   }
@@ -232,39 +216,39 @@
     grid-template-columns: 1fr;
   }
 
-  .users-section {
+  .tenants-section {
     padding: var(--space-4);
   }
 
-  .users-section-header {
+  .tenants-section-header {
     flex-wrap: wrap;
   }
 
   /* Convert table to stacked card rows on small screens */
-  .users-table thead {
+  .tenants-table thead {
     display: none;
   }
 
-  .users-table,
-  .users-table tbody,
-  .users-table tr,
-  .users-table td {
+  .tenants-table,
+  .tenants-table tbody,
+  .tenants-table tr,
+  .tenants-table td {
     display: block;
     width: 100%;
   }
 
-  .users-table tr {
+  .tenants-table tr {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     margin-bottom: var(--space-3);
     padding: var(--space-2) var(--space-3);
   }
 
-  .users-table tr:last-child {
+  .tenants-table tr:last-child {
     margin-bottom: 0;
   }
 
-  .users-table td {
+  .tenants-table td {
     border-bottom: none;
     padding: var(--space-2) 0;
     display: flex;
@@ -273,7 +257,7 @@
     gap: var(--space-3);
   }
 
-  .users-table td::before {
+  .tenants-table td::before {
     content: attr(data-label);
     font-size: 0.75rem;
     font-weight: 600;

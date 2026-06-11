@@ -9,7 +9,6 @@
   justify-content: center;
   padding: var(--space-4);
   z-index: 100;
-  animation: modal-overlay-in var(--transition-base) both;
 }
 
 .modal {
@@ -21,13 +20,48 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-modal);
   padding: var(--space-6);
-  animation: modal-in var(--transition-base) both;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 
 .modal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   font-size: 1.25rem;
   font-weight: 700;
-  margin-bottom: var(--space-5);
+  margin: 0;
+}
+
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.modal-close:hover {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
 }
 
 .modal-error {
@@ -45,26 +79,6 @@
   justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-6);
-}
-
-@keyframes modal-overlay-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes modal-in {
-  from {
-    opacity: 0;
-    transform: scale(0.97) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
 }
 
 @media (max-width: 480px) {

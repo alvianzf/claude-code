@@ -38,3 +38,43 @@ export function validateFullName(fullName: string): string | null {
   }
   return null;
 }
+
+const TENANT_SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * Validates a tenant name per spec §6: required, 1-100 chars.
+ */
+export function validateTenantName(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed.length < 1 || trimmed.length > 100) {
+    return "Name must be between 1 and 100 characters.";
+  }
+  return null;
+}
+
+/**
+ * Validates a tenant slug per spec §6: `^[a-z0-9]+(-[a-z0-9]+)*$`, 3-32 chars.
+ * Only validated if non-empty (an empty slug is auto-derived server-side).
+ */
+export function validateTenantSlug(slug: string): string | null {
+  if (!slug) {
+    return null;
+  }
+  if (slug.length < 3 || slug.length > 32 || !TENANT_SLUG_PATTERN.test(slug)) {
+    return "Slug must be 3-32 characters, lowercase letters, numbers, and single hyphens between words.";
+  }
+  return null;
+}
+
+/**
+ * Derives a slug from a tenant name: lowercase, replace runs of
+ * whitespace/non `[a-z0-9]` characters with single hyphens, and strip
+ * leading/trailing hyphens. Mirrors the server-side `slugify()` used for
+ * auto-derivation, used here for a live preview only.
+ */
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}

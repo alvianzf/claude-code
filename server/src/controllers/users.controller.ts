@@ -11,8 +11,8 @@ import {
   validateRole,
 } from "../utils/validation.js";
 
-export async function listUsers(_req: Request, res: Response): Promise<void> {
-  const users = await userStore.readUsers();
+export async function listUsers(req: Request, res: Response): Promise<void> {
+  const users = await userStore.getUsersByTenant(req.user!.tenantId!);
   res.status(200).json({ users: users.map(toPublicUser) });
 }
 
@@ -36,6 +36,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     passwordHash: await hashPassword(password),
     fullName,
     role,
+    tenantId: req.user!.tenantId!,
     createdAt: now,
     updatedAt: now,
   });
@@ -48,7 +49,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   const body = req.body as Record<string, unknown>;
 
   const existing = await userStore.getUserById(id);
-  if (!existing) {
+  if (!existing || existing.tenantId !== req.user!.tenantId) {
     throw new ApiError(404, "NOT_FOUND", "User not found");
   }
 
@@ -84,7 +85,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     const role = validateRole(body.role);
     if (existing.role === "admin" && role === "user") {
       const users = await userStore.readUsers();
-      if (userStore.countAdmins(users) <= 1) {
+      if (userStore.countAdmins(users, req.user!.tenantId!) <= 1) {
         throw new ApiError(400, "LAST_ADMIN", "Cannot demote the last remaining admin");
       }
     }
@@ -101,13 +102,13 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
 
   const existing = await userStore.getUserById(id);
-  if (!existing) {
+  if (!existing || existing.tenantId !== req.user!.tenantId) {
     throw new ApiError(404, "NOT_FOUND", "User not found");
   }
 
   if (existing.role === "admin") {
     const users = await userStore.readUsers();
-    if (userStore.countAdmins(users) <= 1) {
+    if (userStore.countAdmins(users, req.user!.tenantId!) <= 1) {
       throw new ApiError(400, "LAST_ADMIN", "Cannot delete the last remaining admin");
     }
   }

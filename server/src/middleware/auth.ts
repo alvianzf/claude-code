@@ -34,3 +34,17 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction): 
   }
   next();
 }
+
+export function requirePlatformAdmin(req: Request, _res: Response, next: NextFunction): void {
+  if (req.user?.role !== "platform_admin") {
+    throw new ApiError(403, "FORBIDDEN", "Platform admin role required");
+  }
+  next();
+}
+
+export function requireTenantScope(req: Request, _res: Response, next: NextFunction): void {
+  if (req.user?.tenantId === null || req.user?.tenantId === undefined) {
+    throw new ApiError(403, "NO_TENANT", "This action requires a tenant-scoped account");
+  }
+  next();
+}

@@ -7,6 +7,7 @@ import YAML from "yaml";
 import swaggerUi from "swagger-ui-express";
 import authRoutes from "./routes/auth.routes.js";
 import usersRoutes from "./routes/users.routes.js";
+import tenantsRoutes from "./routes/tenants.routes.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,7 @@ export async function createApp() {
 
   app.use("/api/v1/auth", authRoutes);
   app.use("/api/v1/users", usersRoutes);
+  app.use("/api/v1/tenants", tenantsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

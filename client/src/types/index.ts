@@ -1,12 +1,48 @@
-export type Role = "admin" | "user";
+export type Role = "platform_admin" | "admin" | "user";
+
+export type TenantStatus = "active" | "suspended";
 
 export interface UserPublic {
   id: string;
   username: string;
   fullName: string;
   role: Role;
+  tenantId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: TenantStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantWithEmployeeCount extends Tenant {
+  employeeCount: number;
+}
+
+export interface TenantsResponse {
+  tenants: TenantWithEmployeeCount[];
+}
+
+export interface TenantResponse {
+  tenant: Tenant;
+}
+
+export interface CreateTenantRequest {
+  name: string;
+  slug?: string;
+  status?: TenantStatus;
+}
+
+export interface UpdateTenantRequest {
+  name?: string;
+  slug?: string;
+  status?: TenantStatus;
 }
 
 export interface LoginRequest {

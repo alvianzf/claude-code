@@ -1,5 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { UserCog, UserPlus, X } from "lucide-react";
 import { createUser, updateUser } from "../api/users";
 import { getApiErrorCode, getApiErrorMessage } from "../api/client";
 import { validateFullName, validatePassword, validateUsername } from "../utils/validation";
@@ -27,9 +29,15 @@ interface FormErrors {
   form?: string;
 }
 
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+};
+
 export function UserModal({ user, onClose, onSaved }: UserModalProps) {
   const isEditMode = Boolean(user);
   const titleId = useId();
+  const prefersReducedMotion = useReducedMotion();
 
   const [form, setForm] = useState<FormState>({
     username: user?.username ?? "",
@@ -39,6 +47,28 @@ export function UserModal({ user, onClose, onSaved }: UserModalProps) {
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const panelVariants = {
+    hidden: prefersReducedMotion
+      ? { opacity: 0 }
+      : { opacity: 0, scale: 0.97, y: 8 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: { duration: prefersReducedMotion ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] as const },
+    },
+    exit: prefersReducedMotion
+      ? { opacity: 0 }
+      : {
+          opacity: 0,
+          scale: 0.97,
+          y: 8,
+          transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const },
+        },
+  };
+
+  const overlayTransition = { duration: prefersReducedMotion ? 0 : 0.2 };
 
   // Close on Escape key for accessibility/keyboard navigation.
   useEffect(() => {
@@ -117,17 +147,35 @@ export function UserModal({ user, onClose, onSaved }: UserModalProps) {
   }
 
   return (
-    <div className="modal-overlay" onMouseDown={onClose}>
-      <div
+    <motion.div
+      className="modal-overlay"
+      onMouseDown={onClose}
+      variants={overlayVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+      transition={overlayTransition}
+    >
+      <motion.div
         className="modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onMouseDown={(e) => e.stopPropagation()}
+        variants={panelVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
       >
-        <h2 id={titleId} className="modal-title">
-          {isEditMode ? "Edit User" : "Add User"}
-        </h2>
+        <div className="modal-header">
+          <h2 id={titleId} className="modal-title">
+            {isEditMode ? <UserCog size={20} aria-hidden="true" /> : <UserPlus size={20} aria-hidden="true" />}
+            {isEditMode ? "Edit User" : "Add User"}
+          </h2>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close dialog">
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
 
         {errors.form && (
           <div className="modal-error" role="alert">
@@ -215,7 +263,7 @@ export function UserModal({ user, onClose, onSaved }: UserModalProps) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -23,6 +23,14 @@
   --color-admin-soft: #ede9fe;
   --color-user: #0ea5e9;
   --color-user-soft: #e0f2fe;
+  --color-platform: #0f172a;
+  --color-platform-soft: #e2e8f0;
+
+  /* Tenant status */
+  --color-status-active: var(--color-success);
+  --color-status-active-soft: #dcfce7;
+  --color-status-suspended: #d97706;
+  --color-status-suspended-soft: #fef3c7;
 
   /* Legacy aliases kept for compatibility */
   --color-primary: var(--color-accent);
@@ -325,4 +333,47 @@ a {
   background-color: var(--color-danger-soft);
   color: var(--color-danger);
   border: 1px solid var(--color-danger-border);
+}
+
+/* Role badges (used on Dashboard and Platform Admin headers) */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.role-badge[data-role="platform_admin"] {
+  background-color: var(--color-platform-soft);
+  color: var(--color-platform);
+}
+
+/* Tenant status badges (Platform Admin tenants table) */
+.tenant-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.tenant-status-badge[data-status="active"] {
+  background-color: var(--color-status-active-soft);
+  color: var(--color-status-active);
+}
+
+.tenant-status-badge[data-status="suspended"] {
+  background-color: var(--color-status-suspended-soft);
+  color: var(--color-status-suspended);
 }

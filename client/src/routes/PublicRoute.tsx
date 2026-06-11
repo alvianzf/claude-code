@@ -1,9 +1,11 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
+import { RoleRedirect } from "./RoleRedirect";
 
 /**
  * Renders nested routes only when the user is NOT authenticated.
- * Redirects to /dashboard otherwise (e.g. visiting /login while logged in).
+ * Redirects to the role-appropriate landing route otherwise (e.g. visiting
+ * /login while logged in).
  */
 export function PublicRoute() {
   const { user, isLoading } = useAuth();
@@ -13,7 +15,7 @@ export function PublicRoute() {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <RoleRedirect />;
   }
 
   return <Outlet />;
