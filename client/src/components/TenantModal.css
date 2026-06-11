@@ -1,5 +1,16 @@
 @import "./UserModal.css";
 
+.modal-section-heading {
+  margin: var(--space-5) 0 var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
 .slug-preview {
   margin: 4px 0 0;
   font-size: 0.8125rem;

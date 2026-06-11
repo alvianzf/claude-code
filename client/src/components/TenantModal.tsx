@@ -4,26 +4,39 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Building2, X } from "lucide-react";
 import { createTenant, updateTenant } from "../api/tenants";
 import { getApiErrorCode, getApiErrorMessage } from "../api/client";
-import { slugify, validateTenantName, validateTenantSlug } from "../utils/validation";
-import type { Tenant, TenantStatus, TenantWithEmployeeCount } from "../types";
+import {
+  slugify,
+  validateFullName,
+  validatePassword,
+  validateTenantName,
+  validateTenantSlug,
+  validateUsername,
+} from "../utils/validation";
+import type { TenantStatus, TenantWithEmployeeCount } from "../types";
 import "./TenantModal.css";
 
 interface TenantModalProps {
   /** When provided, the modal operates in edit mode for this tenant. Omit for create mode. */
   tenant?: TenantWithEmployeeCount;
   onClose: () => void;
-  onSaved: (tenant: Tenant) => void;
+  onSaved: (tenant: TenantWithEmployeeCount) => void;
 }
 
 interface FormState {
   name: string;
   slug: string;
   status: TenantStatus;
+  adminUsername: string;
+  adminFullName: string;
+  adminPassword: string;
 }
 
 interface FormErrors {
   name?: string;
   slug?: string;
+  adminUsername?: string;
+  adminFullName?: string;
+  adminPassword?: string;
   form?: string;
 }
 
@@ -41,6 +54,9 @@ export function TenantModal({ tenant, onClose, onSaved }: TenantModalProps) {
     name: tenant?.name ?? "",
     slug: tenant?.slug ?? "",
     status: tenant?.status ?? "active",
+    adminUsername: "",
+    adminFullName: "",
+    adminPassword: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,6 +103,17 @@ export function TenantModal({ tenant, onClose, onSaved }: TenantModalProps) {
     const slugError = validateTenantSlug(form.slug.trim());
     if (slugError) nextErrors.slug = slugError;
 
+    if (!isEditMode) {
+      const usernameError = validateUsername(form.adminUsername);
+      if (usernameError) nextErrors.adminUsername = usernameError;
+
+      const fullNameError = validateFullName(form.adminFullName);
+      if (fullNameError) nextErrors.adminFullName = fullNameError;
+
+      const passwordError = validatePassword(form.adminPassword, true);
+      if (passwordError) nextErrors.adminPassword = passwordError;
+    }
+
     return nextErrors;
   }
 
@@ -105,20 +132,26 @@ export function TenantModal({ tenant, onClose, onSaved }: TenantModalProps) {
     const trimmedSlug = form.slug.trim();
 
     try {
-      let savedTenant: Tenant;
+      let savedTenant: TenantWithEmployeeCount;
       if (isEditMode && tenant) {
-        savedTenant = (
+        const updated = (
           await updateTenant(tenant.id, {
             name: form.name,
             ...(trimmedSlug ? { slug: trimmedSlug } : {}),
             status: form.status,
           })
         ).tenant;
+        savedTenant = { ...tenant, ...updated };
       } else {
         savedTenant = (
           await createTenant({
             name: form.name,
             ...(trimmedSlug ? { slug: trimmedSlug } : {}),
+            admin: {
+              username: form.adminUsername,
+              fullName: form.adminFullName,
+              password: form.adminPassword,
+            },
           })
         ).tenant;
       }
@@ -127,6 +160,8 @@ export function TenantModal({ tenant, onClose, onSaved }: TenantModalProps) {
       const code = getApiErrorCode(err);
       if (code === "SLUG_TAKEN") {
         setErrors({ slug: "This slug is already taken." });
+      } else if (code === "USERNAME_TAKEN") {
+        setErrors({ adminUsername: "This username is already taken." });
       } else if (code === "VALIDATION_ERROR") {
         setErrors({ form: getApiErrorMessage(err, "Please check the form for errors.") });
       } else {
@@ -233,6 +268,67 @@ export function TenantModal({ tenant, onClose, onSaved }: TenantModalProps) {
                 <option value="suspended">Suspended</option>
               </select>
             </div>
+          )}
+
+          {!isEditMode && (
+            <>
+              <h3 className="modal-section-heading">Initial Admin</h3>
+
+              <div className="form-field">
+                <label htmlFor="modal-admin-username">Username</label>
+                <input
+                  id="modal-admin-username"
+                  type="text"
+                  value={form.adminUsername}
+                  onChange={(e) => setForm((f) => ({ ...f, adminUsername: e.target.value }))}
+                  disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.adminUsername)}
+                  aria-describedby={errors.adminUsername ? "modal-admin-username-error" : undefined}
+                />
+                {errors.adminUsername && (
+                  <p id="modal-admin-username-error" className="field-error">
+                    {errors.adminUsername}
+                  </p>
+                )}
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="modal-admin-fullname">Full Name</label>
+                <input
+                  id="modal-admin-fullname"
+                  type="text"
+                  value={form.adminFullName}
+                  onChange={(e) => setForm((f) => ({ ...f, adminFullName: e.target.value }))}
+                  disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.adminFullName)}
+                  aria-describedby={errors.adminFullName ? "modal-admin-fullname-error" : undefined}
+                />
+                {errors.adminFullName && (
+                  <p id="modal-admin-fullname-error" className="field-error">
+                    {errors.adminFullName}
+                  </p>
+                )}
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="modal-admin-password">Password</label>
+                <input
+                  id="modal-admin-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={form.adminPassword}
+                  onChange={(e) => setForm((f) => ({ ...f, adminPassword: e.target.value }))}
+                  disabled={isSubmitting}
+                  aria-invalid={Boolean(errors.adminPassword)}
+                  aria-describedby={errors.adminPassword ? "modal-admin-password-error" : undefined}
+                />
+                {errors.adminPassword && (
+                  <p id="modal-admin-password-error" className="field-error">
+                    {errors.adminPassword}
+                  </p>
+                )}
+              </div>
+            </>
           )}
 
           <div className="modal-actions">

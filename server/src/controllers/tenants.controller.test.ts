@@ -4,18 +4,28 @@ import type { Tenant } from "../types.js";
 
 const getTenantById = vi.fn();
 const deleteTenant = vi.fn();
+const readTenants = vi.fn();
+const addTenant = vi.fn();
 const countUsersByTenant = vi.fn();
+const getUserByUsername = vi.fn();
+const addUser = vi.fn();
 
 vi.mock("../services/tenantStore.js", () => ({
   getTenantById: (...args: unknown[]) => getTenantById(...args),
   deleteTenant: (...args: unknown[]) => deleteTenant(...args),
+  readTenants: (...args: unknown[]) => readTenants(...args),
+  addTenant: (...args: unknown[]) => addTenant(...args),
 }));
 
 vi.mock("../services/userStore.js", () => ({
   countUsersByTenant: (...args: unknown[]) => countUsersByTenant(...args),
+  getUserByUsername: (...args: unknown[]) => getUserByUsername(...args),
+  addUser: (...args: unknown[]) => addUser(...args),
 }));
 
-const { deleteTenant: deleteTenantHandler } = await import("./tenants.controller.js");
+const { deleteTenant: deleteTenantHandler, createTenant: createTenantHandler } = await import(
+  "./tenants.controller.js"
+);
 
 function makeTenant(overrides: Partial<Tenant> = {}): Tenant {
   return {
@@ -29,12 +39,13 @@ function makeTenant(overrides: Partial<Tenant> = {}): Tenant {
   };
 }
 
-function makeReqRes(params: Record<string, string>) {
-  const req = { params } as unknown as Request;
+function makeReqRes(params: Record<string, string>, body: Record<string, unknown> = {}) {
+  const req = { params, body } as unknown as Request;
   const send = vi.fn();
-  const status = vi.fn(() => ({ send }));
+  const json = vi.fn();
+  const status = vi.fn(() => ({ send, json }));
   const res = { status } as unknown as Response;
-  return { req, res, status, send };
+  return { req, res, status, send, json };
 }
 
 describe("tenants.controller deleteTenant", () => {
@@ -80,5 +91,77 @@ describe("tenants.controller deleteTenant", () => {
     expect(deleteTenant).toHaveBeenCalledWith("tenant-1");
     expect(status).toHaveBeenCalledWith(204);
     expect(send).toHaveBeenCalled();
+  });
+});
+
+describe("tenants.controller createTenant - optional initial admin", () => {
+  beforeEach(() => {
+    readTenants.mockReset();
+    addTenant.mockReset();
+    getUserByUsername.mockReset();
+    addUser.mockReset();
+
+    readTenants.mockResolvedValue([]);
+    addTenant.mockImplementation((tenant: Tenant) => Promise.resolve(tenant));
+  });
+
+  it("creates a tenant without an admin when `admin` is omitted", async () => {
+    const { req, res, status, json } = makeReqRes({}, { name: "Acme Corp" });
+
+    await createTenantHandler(req, res);
+
+    expect(addUser).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(201);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant: expect.objectContaining({ name: "Acme Corp", employeeCount: 0 }),
+      })
+    );
+    expect(json).not.toHaveBeenCalledWith(expect.objectContaining({ adminUser: expect.anything() }));
+  });
+
+  it("creates a tenant and its initial admin when `admin` is provided", async () => {
+    getUserByUsername.mockResolvedValue(undefined);
+    addUser.mockImplementation((user) => Promise.resolve(user));
+
+    const { req, res, status, json } = makeReqRes(
+      {},
+      {
+        name: "Acme Corp",
+        admin: { username: "acme_admin", password: "supersecret", fullName: "Acme Admin" },
+      }
+    );
+
+    await createTenantHandler(req, res);
+
+    expect(addUser).toHaveBeenCalledWith(
+      expect.objectContaining({ username: "acme_admin", role: "admin", tenantId: expect.any(String) })
+    );
+    expect(status).toHaveBeenCalledWith(201);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant: expect.objectContaining({ name: "Acme Corp", employeeCount: 1 }),
+        adminUser: expect.objectContaining({ username: "acme_admin" }),
+      })
+    );
+  });
+
+  it("rejects with 409 USERNAME_TAKEN and does not create the tenant", async () => {
+    getUserByUsername.mockResolvedValue({ id: "existing-user", username: "acme_admin" });
+
+    const { req, res } = makeReqRes(
+      {},
+      {
+        name: "Acme Corp",
+        admin: { username: "acme_admin", password: "supersecret", fullName: "Acme Admin" },
+      }
+    );
+
+    await expect(createTenantHandler(req, res)).rejects.toMatchObject({
+      status: 409,
+      code: "USERNAME_TAKEN",
+    });
+    expect(addTenant).not.toHaveBeenCalled();
+    expect(addUser).not.toHaveBeenCalled();
   });
 });

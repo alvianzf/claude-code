@@ -2,11 +2,16 @@ import type { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import * as tenantStore from "../services/tenantStore.js";
 import * as userStore from "../services/userStore.js";
+import { hashPassword } from "../utils/password.js";
+import { toPublicUser } from "../utils/serialize.js";
 import { ApiError } from "../utils/ApiError.js";
 import {
   validateTenantName,
   validateTenantSlug,
   validateTenantStatus,
+  validateUsername,
+  validatePassword,
+  validateFullName,
   slugify,
 } from "../utils/validation.js";
 import type { Tenant } from "../types.js";
@@ -26,6 +31,21 @@ export async function createTenant(req: Request, res: Response): Promise<void> {
   const body = req.body as Record<string, unknown>;
 
   const name = validateTenantName(body.name);
+
+  // Validate the optional initial admin up front so we never leave behind an
+  // orphaned tenant if the admin's username/password/fullName are invalid or taken.
+  let admin: { username: string; password: string; fullName: string } | undefined;
+  if (body.admin !== undefined && body.admin !== null) {
+    const adminBody = body.admin as Record<string, unknown>;
+    const username = validateUsername(adminBody.username);
+    const password = validatePassword(adminBody.password, true)!;
+    const fullName = validateFullName(adminBody.fullName);
+
+    if (await userStore.getUserByUsername(username)) {
+      throw new ApiError(409, "USERNAME_TAKEN", "Username is already taken");
+    }
+    admin = { username, password, fullName };
+  }
 
   const existingTenants = await tenantStore.readTenants();
   const existingSlugs = new Set(existingTenants.map((t) => t.slug));
@@ -52,7 +72,24 @@ export async function createTenant(req: Request, res: Response): Promise<void> {
     updatedAt: now,
   });
 
-  res.status(201).json({ tenant });
+  let adminUser;
+  if (admin) {
+    adminUser = await userStore.addUser({
+      id: uuidv4(),
+      username: admin.username,
+      passwordHash: await hashPassword(admin.password),
+      fullName: admin.fullName,
+      role: "admin",
+      tenantId: tenant.id,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  res.status(201).json({
+    tenant: { ...tenant, employeeCount: adminUser ? 1 : 0 },
+    ...(adminUser ? { adminUser: toPublicUser(adminUser) } : {}),
+  });
 }
 
 export async function updateTenant(req: Request, res: Response): Promise<void> {

@@ -16,7 +16,7 @@ import { useAuth } from "../context/useAuth";
 import { deleteTenant, getTenants, updateTenant } from "../api/tenants";
 import { getApiErrorMessage } from "../api/client";
 import { TenantModal } from "../components/TenantModal";
-import type { Tenant, TenantWithEmployeeCount } from "../types";
+import type { TenantWithEmployeeCount } from "../types";
 import "./TenantsAdminPage.css";
 
 export function TenantsAdminPage() {
@@ -80,13 +80,13 @@ export function TenantsAdminPage() {
   const totalEmployees = useMemo(() => tenants.reduce((sum, t) => sum + t.employeeCount, 0), [tenants]);
   const activeTenants = useMemo(() => tenants.filter((t) => t.status === "active").length, [tenants]);
 
-  function handleSaved(savedTenant: Tenant) {
+  function handleSaved(savedTenant: TenantWithEmployeeCount) {
     setTenants((prev) => {
       const exists = prev.some((t) => t.id === savedTenant.id);
       if (exists) {
-        return prev.map((t) => (t.id === savedTenant.id ? { ...t, ...savedTenant } : t));
+        return prev.map((t) => (t.id === savedTenant.id ? savedTenant : t));
       }
-      return [...prev, { ...savedTenant, employeeCount: 0 }];
+      return [...prev, savedTenant];
     });
     setModalState({ mode: "closed" });
   }

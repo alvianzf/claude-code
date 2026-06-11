@@ -170,10 +170,11 @@ All responses are JSON. Errors follow the shape:
 ### 5.8 `POST /api/v1/tenants` — **new**
 
 - Auth: required, `requirePlatformAdmin`
-- Body: `{ "name": string, "slug"?: string, "status"?: "active" | "suspended" }` (`status` defaults to `"active"`; `slug` auto-derived from `name` if omitted)
-- 201: `{ "tenant": Tenant }`
+- Body: `{ "name": string, "slug"?: string, "status"?: "active" | "suspended", "admin"?: { "username": string, "password": string, "fullName": string } }` (`status` defaults to `"active"`; `slug` auto-derived from `name` if omitted)
+- If `admin` is provided, an initial `role: "admin"` user is created for the new tenant atomically (validated — including username uniqueness — *before* the tenant is created, so a rejected admin never leaves an orphaned tenant behind).
+- 201: `{ "tenant": TenantWithEmployeeCount, "adminUser"?: UserPublic }` (`adminUser` present only if `admin` was provided; `employeeCount` is `1` in that case, else `0`)
 - 400: validation error (`VALIDATION_ERROR`)
-- 409: explicit slug already taken (`SLUG_TAKEN`)
+- 409: explicit slug already taken (`SLUG_TAKEN`), or `admin.username` already taken (`USERNAME_TAKEN`)
 - 403: non-platform-admin caller
 
 ### 5.9 `PUT /api/v1/tenants/:id` — **new**
@@ -291,9 +292,10 @@ Unchanged fields/validation from v1 (§5.4 of specs.md). Visual updates:
 ### 7.6 Tenant Modal — **new**
 
 - Fields: Name (text, required), Slug (text, optional — placeholder/hint "auto-generated from name if left blank"), Status (select `active`/`suspended`, **edit mode only** — create always defaults to `active`).
-- Client-side validation mirrors §6: `validateTenantName`, `validateTenantSlug` (only if non-empty), via new functions added to `client/src/utils/validation.ts` alongside a `slugify()` helper used for live slug preview.
+- **Create mode only** — "Initial Admin" section: Username, Full Name, Password (all required). Submitted as `admin: { username, password, fullName }` on `POST /tenants`, creating the tenant's first `admin` user atomically. Not shown in edit mode.
+- Client-side validation mirrors §6: `validateTenantName`, `validateTenantSlug` (only if non-empty), via new functions added to `client/src/utils/validation.ts` alongside a `slugify()` helper used for live slug preview. Initial-admin fields reuse `validateUsername`/`validatePassword`/`validateFullName`.
 - Create mode: `POST /tenants`. Edit mode: `PUT /tenants/:id`.
-- Error handling: `409 SLUG_TAKEN` → inline error on the Slug field. `400 VALIDATION_ERROR` → form-level error banner (mirrors `UserModal` pattern).
+- Error handling: `409 SLUG_TAKEN` → inline error on the Slug field. `409 USERNAME_TAKEN` → inline error on the admin Username field. `400 VALIDATION_ERROR` → form-level error banner (mirrors `UserModal` pattern).
 - Same `AnimatePresence`/`motion` overlay + panel animation as User Modal.
 
 ### 7.7 Session Handling

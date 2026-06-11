@@ -70,6 +70,16 @@ components:
               type: integer
               minimum: 0
           required: [employeeCount]
+    CreateTenantAdminRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        fullName:
+          type: string
+      required: [username, password, fullName]
     CreateTenantRequest:
       type: object
       properties:
@@ -80,6 +90,10 @@ components:
           description: Optional. Auto-derived from `name` via slugify() if omitted.
         status:
           $ref: '#/components/schemas/TenantStatus'
+        admin:
+          allOf:
+            - $ref: '#/components/schemas/CreateTenantAdminRequest'
+          description: Optional. If provided, an initial `admin` user is created for this tenant atomically.
       required: [name]
     UpdateTenantRequest:
       type: object
@@ -393,7 +407,10 @@ paths:
                 type: object
                 properties:
                   tenant:
-                    $ref: '#/components/schemas/Tenant'
+                    $ref: '#/components/schemas/TenantWithEmployeeCount'
+                  adminUser:
+                    $ref: '#/components/schemas/UserPublic'
+                    description: Present only if `admin` was provided in the request body.
         '400':
           description: Validation error
           content:
@@ -407,7 +424,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Explicit slug already taken (SLUG_TAKEN)
+          description: Explicit slug already taken (SLUG_TAKEN), or admin username already taken (USERNAME_TAKEN)
           content:
             application/json:
               schema:

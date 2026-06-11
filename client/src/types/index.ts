@@ -33,10 +33,22 @@ export interface TenantResponse {
   tenant: Tenant;
 }
 
+export interface CreateTenantAdminRequest {
+  username: string;
+  password: string;
+  fullName: string;
+}
+
 export interface CreateTenantRequest {
   name: string;
   slug?: string;
   status?: TenantStatus;
+  admin?: CreateTenantAdminRequest;
+}
+
+export interface CreateTenantResponse {
+  tenant: TenantWithEmployeeCount;
+  adminUser?: UserPublic;
 }
 
 export interface UpdateTenantRequest {

@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
 import type {
   CreateTenantRequest,
+  CreateTenantResponse,
   TenantResponse,
   TenantsResponse,
   UpdateTenantRequest,
@@ -11,8 +12,8 @@ export async function getTenants(): Promise<TenantsResponse> {
   return data;
 }
 
-export async function createTenant(payload: CreateTenantRequest): Promise<TenantResponse> {
-  const { data } = await apiClient.post<TenantResponse>("/tenants", payload);
+export async function createTenant(payload: CreateTenantRequest): Promise<CreateTenantResponse> {
+  const { data } = await apiClient.post<CreateTenantResponse>("/tenants", payload);
   return data;
 }
 
