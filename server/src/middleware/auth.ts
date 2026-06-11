@@ -28,8 +28,8 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
   next();
 }
 
-export function requireAdmin(req: Request, _res: Response, next: NextFunction): void {
-  if (req.user?.role !== "admin") {
+export function requireUserManager(req: Request, _res: Response, next: NextFunction): void {
+  if (req.user?.role !== "admin" && req.user?.role !== "platform_admin") {
     throw new ApiError(403, "FORBIDDEN", "Admin role required");
   }
   next();
@@ -38,13 +38,6 @@ export function requireAdmin(req: Request, _res: Response, next: NextFunction): 
 export function requirePlatformAdmin(req: Request, _res: Response, next: NextFunction): void {
   if (req.user?.role !== "platform_admin") {
     throw new ApiError(403, "FORBIDDEN", "Platform admin role required");
-  }
-  next();
-}
-
-export function requireTenantScope(req: Request, _res: Response, next: NextFunction): void {
-  if (req.user?.tenantId === null || req.user?.tenantId === undefined) {
-    throw new ApiError(403, "NO_TENANT", "This action requires a tenant-scoped account");
   }
   next();
 }

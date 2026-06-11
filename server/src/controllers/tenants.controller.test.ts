@@ -7,7 +7,6 @@ const deleteTenant = vi.fn();
 const readTenants = vi.fn();
 const addTenant = vi.fn();
 const countUsersByTenant = vi.fn();
-const getUserByUsername = vi.fn();
 const addUser = vi.fn();
 
 vi.mock("../services/tenantStore.js", () => ({
@@ -19,7 +18,6 @@ vi.mock("../services/tenantStore.js", () => ({
 
 vi.mock("../services/userStore.js", () => ({
   countUsersByTenant: (...args: unknown[]) => countUsersByTenant(...args),
-  getUserByUsername: (...args: unknown[]) => getUserByUsername(...args),
   addUser: (...args: unknown[]) => addUser(...args),
 }));
 
@@ -98,7 +96,6 @@ describe("tenants.controller createTenant - optional initial admin", () => {
   beforeEach(() => {
     readTenants.mockReset();
     addTenant.mockReset();
-    getUserByUsername.mockReset();
     addUser.mockReset();
 
     readTenants.mockResolvedValue([]);
@@ -121,7 +118,6 @@ describe("tenants.controller createTenant - optional initial admin", () => {
   });
 
   it("creates a tenant and its initial admin when `admin` is provided", async () => {
-    getUserByUsername.mockResolvedValue(undefined);
     addUser.mockImplementation((user) => Promise.resolve(user));
 
     const { req, res, status, json } = makeReqRes(
@@ -144,24 +140,5 @@ describe("tenants.controller createTenant - optional initial admin", () => {
         adminUser: expect.objectContaining({ username: "acme_admin" }),
       })
     );
-  });
-
-  it("rejects with 409 USERNAME_TAKEN and does not create the tenant", async () => {
-    getUserByUsername.mockResolvedValue({ id: "existing-user", username: "acme_admin" });
-
-    const { req, res } = makeReqRes(
-      {},
-      {
-        name: "Acme Corp",
-        admin: { username: "acme_admin", password: "supersecret", fullName: "Acme Admin" },
-      }
-    );
-
-    await expect(createTenantHandler(req, res)).rejects.toMatchObject({
-      status: 409,
-      code: "USERNAME_TAKEN",
-    });
-    expect(addTenant).not.toHaveBeenCalled();
-    expect(addUser).not.toHaveBeenCalled();
   });
 });

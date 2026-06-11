@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
 import {
   Building2,
   CheckCircle2,
@@ -21,6 +22,7 @@ import "./TenantsAdminPage.css";
 
 export function TenantsAdminPage() {
   const { user: currentUser, logout } = useAuth();
+  const location = useLocation();
   const [tenants, setTenants] = useState<TenantWithEmployeeCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +164,19 @@ export function TenantsAdminPage() {
           </span>
           <h1 className="tenants-title">Platform Admin</h1>
         </div>
+        <nav className="admin-tabs" aria-label="Platform admin sections">
+          <Link
+            to="/admin/tenants"
+            className={`admin-tab ${location.pathname === "/admin/tenants" ? "active" : ""}`}
+          >
+            <Building2 size={14} aria-hidden="true" />
+            Tenants
+          </Link>
+          <Link to="/admin/team" className={`admin-tab ${location.pathname === "/admin/team" ? "active" : ""}`}>
+            <Users size={14} aria-hidden="true" />
+            Team
+          </Link>
+        </nav>
         <div className="tenants-header-right">
           {currentUser && (
             <div className="current-user-info">

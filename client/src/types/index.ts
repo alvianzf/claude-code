@@ -60,6 +60,7 @@ export interface UpdateTenantRequest {
 export interface LoginRequest {
   username: string;
   password: string;
+  tenantSlug?: string;
 }
 
 export interface LoginResponse {

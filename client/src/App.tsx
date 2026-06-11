@@ -24,6 +24,7 @@ function App() {
 
             <Route element={<RoleRoute allow={["platform_admin"]} />}>
               <Route path="/admin/tenants" element={<TenantsAdminPage />} />
+              <Route path="/admin/team" element={<DashboardPage />} />
             </Route>
           </Route>
 

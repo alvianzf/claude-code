@@ -12,19 +12,20 @@ import {
 } from "../utils/validation.js";
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
-  const users = await userStore.getUsersByTenant(req.user!.tenantId!);
+  const users = await userStore.getUsersByTenant(req.user!.tenantId);
   res.status(200).json({ users: users.map(toPublicUser) });
 }
 
 export async function createUser(req: Request, res: Response): Promise<void> {
   const body = req.body as Record<string, unknown>;
+  const tenantId = req.user!.tenantId;
 
   const username = validateUsername(body.username);
   const password = validatePassword(body.password, true)!;
   const fullName = validateFullName(body.fullName);
-  const role = validateRole(body.role);
+  const role = tenantId === null ? "platform_admin" : validateRole(body.role);
 
-  const existing = await userStore.getUserByUsername(username);
+  const existing = await userStore.getUserByUsername(username, tenantId);
   if (existing) {
     throw new ApiError(409, "USERNAME_TAKEN", "Username is already taken");
   }
@@ -36,7 +37,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     passwordHash: await hashPassword(password),
     fullName,
     role,
-    tenantId: req.user!.tenantId!,
+    tenantId,
     createdAt: now,
     updatedAt: now,
   });
@@ -47,9 +48,10 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 export async function updateUser(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const body = req.body as Record<string, unknown>;
+  const tenantId = req.user!.tenantId;
 
   const existing = await userStore.getUserById(id);
-  if (!existing || existing.tenantId !== req.user!.tenantId) {
+  if (!existing || existing.tenantId !== tenantId) {
     throw new ApiError(404, "NOT_FOUND", "User not found");
   }
 
@@ -63,7 +65,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
   if (body.username !== undefined) {
     const username = validateUsername(body.username);
-    const other = await userStore.getUserByUsername(username);
+    const other = await userStore.getUserByUsername(username, tenantId);
     if (other && other.id !== id) {
       throw new ApiError(409, "USERNAME_TAKEN", "Username is already taken");
     }
@@ -81,11 +83,11 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     updates.fullName = validateFullName(body.fullName);
   }
 
-  if (body.role !== undefined) {
+  if (tenantId !== null && body.role !== undefined) {
     const role = validateRole(body.role);
     if (existing.role === "admin" && role === "user") {
       const users = await userStore.readUsers();
-      if (userStore.countAdmins(users, req.user!.tenantId!) <= 1) {
+      if (userStore.countAdmins(users, tenantId) <= 1) {
         throw new ApiError(400, "LAST_ADMIN", "Cannot demote the last remaining admin");
       }
     }
@@ -100,15 +102,16 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
 export async function deleteUser(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
+  const tenantId = req.user!.tenantId;
 
   const existing = await userStore.getUserById(id);
-  if (!existing || existing.tenantId !== req.user!.tenantId) {
+  if (!existing || existing.tenantId !== tenantId) {
     throw new ApiError(404, "NOT_FOUND", "User not found");
   }
 
-  if (existing.role === "admin") {
+  if (existing.role === "admin" || existing.role === "platform_admin") {
     const users = await userStore.readUsers();
-    if (userStore.countAdmins(users, req.user!.tenantId!) <= 1) {
+    if (userStore.countAdmins(users, tenantId) <= 1) {
       throw new ApiError(400, "LAST_ADMIN", "Cannot delete the last remaining admin");
     }
   }

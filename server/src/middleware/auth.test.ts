@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Request, Response } from "express";
-import { requirePlatformAdmin, requireTenantScope } from "./auth.js";
+import { requirePlatformAdmin, requireUserManager } from "./auth.js";
 import { ApiError } from "../utils/ApiError.js";
 import type { JwtPayload } from "../types.js";
 
@@ -35,21 +35,26 @@ describe("requirePlatformAdmin", () => {
   });
 });
 
-describe("requireTenantScope", () => {
-  it("allows users with a tenantId", () => {
+describe("requireUserManager", () => {
+  it("allows admin", () => {
     const req = makeReq({ sub: "1", username: "a", role: "admin", tenantId: "t1" });
-    expect(() => requireTenantScope(req, res, next)).not.toThrow();
+    expect(() => requireUserManager(req, res, next)).not.toThrow();
   });
 
-  it("rejects platform_admin (tenantId: null) with 403 NO_TENANT", () => {
+  it("allows platform_admin", () => {
     const req = makeReq({ sub: "1", username: "pa", role: "platform_admin", tenantId: null });
+    expect(() => requireUserManager(req, res, next)).not.toThrow();
+  });
+
+  it("rejects user with 403 FORBIDDEN", () => {
+    const req = makeReq({ sub: "1", username: "u", role: "user", tenantId: "t1" });
     try {
-      requireTenantScope(req, res, next);
+      requireUserManager(req, res, next);
       expect.unreachable("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).status).toBe(403);
-      expect((err as ApiError).code).toBe("NO_TENANT");
+      expect((err as ApiError).code).toBe("FORBIDDEN");
     }
   });
 });

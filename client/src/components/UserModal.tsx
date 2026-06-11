@@ -11,6 +11,8 @@ import "./UserModal.css";
 interface UserModalProps {
   /** When provided, the modal operates in edit mode for this user. Omit for create mode. */
   user?: UserPublic;
+  /** When set, the role is fixed to this value: the role select is hidden and not sent to the API. */
+  lockRoleTo?: Role;
   onClose: () => void;
   onSaved: (user: UserPublic) => void;
 }
@@ -34,7 +36,7 @@ const overlayVariants = {
   visible: { opacity: 1 },
 };
 
-export function UserModal({ user, onClose, onSaved }: UserModalProps) {
+export function UserModal({ user, lockRoleTo, onClose, onSaved }: UserModalProps) {
   const isEditMode = Boolean(user);
   const titleId = useId();
   const prefersReducedMotion = useReducedMotion();
@@ -43,7 +45,7 @@ export function UserModal({ user, onClose, onSaved }: UserModalProps) {
     username: user?.username ?? "",
     fullName: user?.fullName ?? "",
     password: "",
-    role: user?.role ?? "user",
+    role: user?.role ?? lockRoleTo ?? "user",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -115,7 +117,7 @@ export function UserModal({ user, onClose, onSaved }: UserModalProps) {
           await updateUser(user.id, {
             username: form.username,
             fullName: form.fullName,
-            role: form.role,
+            ...(lockRoleTo ? {} : { role: form.role }),
             ...(form.password ? { password: form.password } : {}),
           })
         ).user;
@@ -125,7 +127,7 @@ export function UserModal({ user, onClose, onSaved }: UserModalProps) {
             username: form.username,
             fullName: form.fullName,
             password: form.password,
-            role: form.role,
+            role: lockRoleTo ?? form.role,
           })
         ).user;
       }
@@ -241,18 +243,20 @@ export function UserModal({ user, onClose, onSaved }: UserModalProps) {
             )}
           </div>
 
-          <div className="form-field">
-            <label htmlFor="modal-role">Role</label>
-            <select
-              id="modal-role"
-              value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as Role }))}
-              disabled={isSubmitting}
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+          {!lockRoleTo && (
+            <div className="form-field">
+              <label htmlFor="modal-role">Role</label>
+              <select
+                id="modal-role"
+                value={form.role}
+                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as Role }))}
+                disabled={isSubmitting}
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          )}
 
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>

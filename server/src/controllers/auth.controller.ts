@@ -7,13 +7,27 @@ import { toPublicUser } from "../utils/serialize.js";
 import { ApiError } from "../utils/ApiError.js";
 
 export async function login(req: Request, res: Response): Promise<void> {
-  const { username, password } = req.body as { username?: unknown; password?: unknown };
+  const { username, password, tenantSlug } = req.body as {
+    username?: unknown;
+    password?: unknown;
+    tenantSlug?: unknown;
+  };
 
   if (typeof username !== "string" || typeof password !== "string" || !username || !password) {
     throw new ApiError(400, "VALIDATION_ERROR", "Username and password are required");
   }
 
-  const user = await userStore.getUserByUsername(username);
+  let tenantId: string | null = null;
+  let tenant;
+  if (typeof tenantSlug === "string" && tenantSlug.trim() !== "") {
+    tenant = await tenantStore.getTenantBySlug(tenantSlug.trim());
+    if (!tenant) {
+      throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid username or password");
+    }
+    tenantId = tenant.id;
+  }
+
+  const user = await userStore.getUserByUsername(username, tenantId);
   if (!user) {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid username or password");
   }
@@ -23,15 +37,12 @@ export async function login(req: Request, res: Response): Promise<void> {
     throw new ApiError(401, "INVALID_CREDENTIALS", "Invalid username or password");
   }
 
-  if (user.tenantId !== null) {
-    const tenant = await tenantStore.getTenantById(user.tenantId);
-    if (tenant && tenant.status === "suspended") {
-      throw new ApiError(
-        403,
-        "TENANT_SUSPENDED",
-        "Your organization's account has been suspended"
-      );
-    }
+  if (tenant && tenant.status === "suspended") {
+    throw new ApiError(
+      403,
+      "TENANT_SUSPENDED",
+      "Your organization's account has been suspended"
+    );
   }
 
   const token = signToken({

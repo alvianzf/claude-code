@@ -7,6 +7,7 @@ import "./LoginPage.css";
 
 export function LoginPage() {
   const { login } = useAuth();
+  const [tenantSlug, setTenantSlug] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,8 @@ export function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login({ username, password });
+      const trimmedTenantSlug = tenantSlug.trim();
+      await login({ username, password, ...(trimmedTenantSlug ? { tenantSlug: trimmedTenantSlug } : {}) });
     } catch (err) {
       const code = getApiErrorCode(err);
       if (code === "INVALID_CREDENTIALS") {
@@ -54,6 +56,21 @@ export function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} noValidate>
+          <div className="form-field">
+            <label htmlFor="tenant">
+              Tenant<span className="field-hint"> (leave blank for platform admin)</span>
+            </label>
+            <input
+              id="tenant"
+              name="tenant"
+              type="text"
+              autoComplete="organization"
+              value={tenantSlug}
+              onChange={(e) => setTenantSlug(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </div>
+
           <div className="form-field">
             <label htmlFor="username">Username</label>
             <input

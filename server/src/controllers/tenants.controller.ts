@@ -34,6 +34,8 @@ export async function createTenant(req: Request, res: Response): Promise<void> {
 
   // Validate the optional initial admin up front so we never leave behind an
   // orphaned tenant if the admin's username/password/fullName are invalid or taken.
+  // A brand-new tenant has no users yet, so the initial admin's username
+  // can never collide with an existing user in this tenant.
   let admin: { username: string; password: string; fullName: string } | undefined;
   if (body.admin !== undefined && body.admin !== null) {
     const adminBody = body.admin as Record<string, unknown>;
@@ -41,9 +43,6 @@ export async function createTenant(req: Request, res: Response): Promise<void> {
     const password = validatePassword(adminBody.password, true)!;
     const fullName = validateFullName(adminBody.fullName);
 
-    if (await userStore.getUserByUsername(username)) {
-      throw new ApiError(409, "USERNAME_TAKEN", "Username is already taken");
-    }
     admin = { username, password, fullName };
   }
 

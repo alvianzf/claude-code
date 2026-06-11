@@ -4,14 +4,14 @@ import { ApiError } from "../utils/ApiError.js";
 import type { Tenant, User } from "../types.js";
 
 const getUserByUsername = vi.fn();
-const getTenantById = vi.fn();
+const getTenantBySlug = vi.fn();
 
 vi.mock("../services/userStore.js", () => ({
   getUserByUsername: (...args: unknown[]) => getUserByUsername(...args),
 }));
 
 vi.mock("../services/tenantStore.js", () => ({
-  getTenantById: (...args: unknown[]) => getTenantById(...args),
+  getTenantBySlug: (...args: unknown[]) => getTenantBySlug(...args),
 }));
 
 vi.mock("../utils/password.js", () => ({
@@ -54,30 +54,43 @@ function makeReqRes(body: Record<string, unknown>) {
   return { req, res, status, json };
 }
 
-describe("auth.controller login - tenant suspension", () => {
+describe("auth.controller login - tenant-scoped lookup", () => {
   beforeEach(() => {
     getUserByUsername.mockReset();
-    getTenantById.mockReset();
+    getTenantBySlug.mockReset();
   });
 
-  it("rejects login with 403 TENANT_SUSPENDED if the user's tenant is suspended", async () => {
+  it("rejects login with 401 INVALID_CREDENTIALS for an unknown tenantSlug", async () => {
+    getTenantBySlug.mockResolvedValue(undefined);
+
+    const { req, res } = makeReqRes({ username: "admin", password: "admin123", tenantSlug: "nope" });
+
+    await expect(login(req, res)).rejects.toMatchObject({ status: 401, code: "INVALID_CREDENTIALS" });
+    expect(getUserByUsername).not.toHaveBeenCalled();
+  });
+
+  it("rejects login with 403 TENANT_SUSPENDED if the resolved tenant is suspended", async () => {
+    getTenantBySlug.mockResolvedValue(makeTenant({ status: "suspended" }));
     getUserByUsername.mockResolvedValue(makeUser({ tenantId: "tenant-1" }));
-    getTenantById.mockResolvedValue(makeTenant({ status: "suspended" }));
 
-    const { req, res } = makeReqRes({ username: "admin", password: "admin123" });
+    const { req, res } = makeReqRes({ username: "admin", password: "admin123", tenantSlug: "default" });
 
-    await expect(login(req, res)).rejects.toThrow(ApiError);
     await expect(login(req, res)).rejects.toMatchObject({ status: 403, code: "TENANT_SUSPENDED" });
   });
 
-  it("allows login when the tenant is active", async () => {
+  it("allows login when the resolved tenant is active", async () => {
+    getTenantBySlug.mockResolvedValue(makeTenant({ status: "active" }));
     getUserByUsername.mockResolvedValue(makeUser({ tenantId: "tenant-1" }));
-    getTenantById.mockResolvedValue(makeTenant({ status: "active" }));
 
-    const { req, res, status, json } = makeReqRes({ username: "admin", password: "admin123" });
+    const { req, res, status, json } = makeReqRes({
+      username: "admin",
+      password: "admin123",
+      tenantSlug: "default",
+    });
 
     await login(req, res);
 
+    expect(getUserByUsername).toHaveBeenCalledWith("admin", "tenant-1");
     expect(status).toHaveBeenCalledWith(200);
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -87,17 +100,56 @@ describe("auth.controller login - tenant suspension", () => {
     );
   });
 
-  it("allows platform_admin (tenantId: null) to log in without a tenant lookup", async () => {
+  it("allows platform_admin (tenantId: null) to log in with no tenantSlug", async () => {
     getUserByUsername.mockResolvedValue(makeUser({ role: "platform_admin", tenantId: null }));
 
     const { req, res, status, json } = makeReqRes({ username: "platformadmin", password: "admin123" });
 
     await login(req, res);
 
-    expect(getTenantById).not.toHaveBeenCalled();
+    expect(getTenantBySlug).not.toHaveBeenCalled();
+    expect(getUserByUsername).toHaveBeenCalledWith("platformadmin", null);
     expect(status).toHaveBeenCalledWith(200);
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({ user: expect.objectContaining({ tenantId: null }) })
     );
+  });
+
+  it("treats a blank tenantSlug the same as no tenantSlug (platform pool)", async () => {
+    getUserByUsername.mockResolvedValue(makeUser({ role: "platform_admin", tenantId: null }));
+
+    const { req, res, status } = makeReqRes({
+      username: "platformadmin",
+      password: "admin123",
+      tenantSlug: "  ",
+    });
+
+    await login(req, res);
+
+    expect(getTenantBySlug).not.toHaveBeenCalled();
+    expect(getUserByUsername).toHaveBeenCalledWith("platformadmin", null);
+    expect(status).toHaveBeenCalledWith(200);
+  });
+
+  it("rejects with 401 INVALID_CREDENTIALS when no user exists in the resolved scope", async () => {
+    getUserByUsername.mockResolvedValue(undefined);
+
+    const { req, res } = makeReqRes({ username: "ghost", password: "admin123" });
+
+    await expect(login(req, res)).rejects.toMatchObject({ status: 401, code: "INVALID_CREDENTIALS" });
+  });
+});
+
+describe("auth.controller login - validation", () => {
+  beforeEach(() => {
+    getUserByUsername.mockReset();
+    getTenantBySlug.mockReset();
+  });
+
+  it("rejects with 400 VALIDATION_ERROR when username or password is missing", async () => {
+    const { req, res } = makeReqRes({ username: "admin" });
+
+    await expect(login(req, res)).rejects.toBeInstanceOf(ApiError);
+    await expect(login(req, res)).rejects.toMatchObject({ status: 400, code: "VALIDATION_ERROR" });
   });
 });

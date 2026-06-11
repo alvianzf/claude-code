@@ -42,4 +42,14 @@ describe("countAdmins", () => {
     const users: User[] = [makeUser({ id: "1", role: "user", tenantId: tenantA })];
     expect(countAdmins(users, tenantA)).toBe(0);
   });
+
+  it("counts platform_admin users (tenantId: null) when tenantId is null", () => {
+    const users: User[] = [
+      makeUser({ id: "1", role: "platform_admin", tenantId: null }),
+      makeUser({ id: "2", role: "platform_admin", tenantId: null }),
+      makeUser({ id: "3", role: "admin", tenantId: tenantA }),
+    ];
+
+    expect(countAdmins(users, null)).toBe(2);
+  });
 });

@@ -40,21 +40,21 @@ export function getUserById(id: string): Promise<User | undefined> {
   });
 }
 
-export function getUserByUsername(username: string): Promise<User | undefined> {
+export function getUserByUsername(username: string, tenantId: string | null): Promise<User | undefined> {
   return store.enqueue(async () => {
     const data = await store.readFileRaw();
-    return data.users.find((u) => u.username === username);
+    return data.users.find((u) => u.username === username && u.tenantId === tenantId);
   });
 }
 
-export function getUsersByTenant(tenantId: string): Promise<User[]> {
+export function getUsersByTenant(tenantId: string | null): Promise<User[]> {
   return store.enqueue(async () => {
     const data = await store.readFileRaw();
     return data.users.filter((u) => u.tenantId === tenantId);
   });
 }
 
-export function countUsersByTenant(tenantId: string): Promise<number> {
+export function countUsersByTenant(tenantId: string | null): Promise<number> {
   return store.enqueue(async () => {
     const data = await store.readFileRaw();
     return data.users.filter((u) => u.tenantId === tenantId).length;
@@ -94,9 +94,14 @@ export function deleteUser(id: string): Promise<boolean> {
   });
 }
 
-/** Counts users with `role === "admin"` scoped to a single tenant. */
-export function countAdmins(users: User[], tenantId: string): number {
-  return users.filter((u) => u.role === "admin" && u.tenantId === tenantId).length;
+/**
+ * Counts admin-equivalent users scoped to a tenant: `role === "admin"` for a
+ * regular tenant, or `role === "platform_admin"` for the platform pool
+ * (`tenantId === null`).
+ */
+export function countAdmins(users: User[], tenantId: string | null): number {
+  const role = tenantId === null ? "platform_admin" : "admin";
+  return users.filter((u) => u.role === role && u.tenantId === tenantId).length;
 }
 
 /**

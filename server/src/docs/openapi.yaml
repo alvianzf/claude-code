@@ -111,6 +111,14 @@ components:
           type: string
         password:
           type: string
+        tenantSlug:
+          type: string
+          description: >-
+            Optional tenant slug. If omitted or blank, the username is
+            resolved against the platform admin pool (tenantId: null).
+            If provided, the username is resolved against that tenant's
+            users only. Usernames are unique per tenant (and within the
+            platform admin pool), not globally.
       required: [username, password]
     LoginResponse:
       type: object
@@ -178,7 +186,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '401':
-          description: Invalid credentials
+          description: Invalid credentials, or unknown tenantSlug
           content:
             application/json:
               schema:
@@ -212,7 +220,10 @@ paths:
                 $ref: '#/components/schemas/Error'
   /users:
     get:
-      summary: List users in the caller's tenant
+      summary: >-
+        List users in the caller's scope. For tenant-scoped callers (admin,
+        user) this is their tenant's users; for platform_admin callers this
+        is the platform admin pool (tenantId: null).
       security:
         - bearerAuth: []
       responses:
@@ -233,14 +244,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '403':
-          description: No tenant associated with caller (platform_admin)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
     post:
-      summary: Create a new user in the caller's tenant (admin only)
+      summary: >-
+        Create a user in the caller's scope (admin or platform_admin only).
+        For platform_admin callers, the created user is always
+        role=platform_admin in the platform admin pool (tenantId: null);
+        any `role` in the request body is ignored.
       security:
         - bearerAuth: []
       requestBody:
@@ -266,20 +275,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden (not admin), or no tenant associated with caller (platform_admin)
+          description: Forbidden (not admin or platform_admin)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Username already taken
+          description: Username already taken within this tenant (or platform admin pool)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
   /users/{id}:
     put:
-      summary: Update a user in the caller's tenant (admin only)
+      summary: Update a user in the caller's scope (admin or platform_admin only)
       security:
         - bearerAuth: []
       parameters:
@@ -311,25 +320,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden (not admin), or no tenant associated with caller (platform_admin)
+          description: Forbidden (not admin or platform_admin)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: User not found, or belongs to a different tenant
+          description: User not found, or belongs to a different scope
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Username already taken
+          description: Username already taken within this tenant (or platform admin pool)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete a user in the caller's tenant (admin only)
+      summary: Delete a user in the caller's scope (admin or platform_admin only)
       security:
         - bearerAuth: []
       parameters:
@@ -348,13 +357,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Forbidden (not admin), or no tenant associated with caller (platform_admin)
+          description: Forbidden (not admin or platform_admin)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-          description: User not found, or belongs to a different tenant
+          description: User not found, or belongs to a different scope
           content:
             application/json:
               schema:
@@ -424,7 +433,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: Explicit slug already taken (SLUG_TAKEN), or admin username already taken (USERNAME_TAKEN)
+          description: Explicit slug already taken (SLUG_TAKEN)
           content:
             application/json:
               schema:

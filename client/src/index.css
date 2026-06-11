@@ -354,6 +354,38 @@ a {
   color: var(--color-platform);
 }
 
+/* Platform admin section nav (Tenants / Team) */
+.admin-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-tab:hover {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.admin-tab.active {
+  background-color: var(--color-platform-soft);
+  color: var(--color-platform);
+  border-color: var(--color-border);
+}
+
 /* Tenant status badges (Platform Admin tenants table) */
 .tenant-status-badge {
   display: inline-flex;

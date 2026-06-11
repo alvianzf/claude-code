@@ -40,7 +40,7 @@ Delta from v1: a new `tenants.json` data file is introduced. `users.json` gains 
 | Field        | Type   | Notes                                  |
 | ------------ | ------ | ---------------------------------------- |
 | id           | string | UUID v4, generated server-side          |
-| username     | string | unique, case-sensitive, **global** (not per-tenant) |
+| username     | string | unique, case-sensitive, **per-tenant** (and per "platform pool" — see below) |
 | passwordHash | string | bcrypt hash, never sent to client       |
 | fullName     | string |                                          |
 | role         | enum   | `platform_admin` \| `admin` \| `user`   |
@@ -55,7 +55,7 @@ Delta from v1: a new `tenants.json` data file is introduced. `users.json` gains 
 ```
 
 - Both files are read fresh on every request and rewritten atomically (temp file + rename) on every mutation, serialized via an in-process write queue, same pattern as v1's `userStore.ts`. The atomic-write/queue logic is extracted into a shared helper `server/src/services/jsonFileStore.ts` used by both `userStore.ts` and the new `tenantStore.ts`.
-- Username uniqueness is **global across all tenants and the platform admin** — this lets login resolve a user (and their role/tenant) without a tenant-selection step in the UI.
+- Username uniqueness is **scoped per tenant**, with `tenantId: null` (the platform admin pool) treated as its own scope: `getUserByUsername(username, tenantId)` filters on both fields, so the same username can exist in multiple tenants and in the platform pool simultaneously. Because usernames are no longer globally unique, login requires tenant context — see §3 and §5.1.
 
 ### Slug auto-derivation
 
@@ -73,11 +73,12 @@ When creating a tenant without an explicit `slug`, the server derives one from `
 
 ### Flow (delta from v1)
 
-1. Client POSTs credentials to `/api/v1/auth/login`.
-2. Server verifies username + bcrypt password match (global username lookup, unchanged). Invalid credentials → `401 INVALID_CREDENTIALS` (checked first, before any tenant lookup, so suspension status is never leaked to a failed-credentials probe).
-3. **New step**: if the matched user's `tenantId !== null`, the server loads that tenant. If `tenant.status === "suspended"`, return `403 TENANT_SUSPENDED` and do not issue a token.
-4. On success, server returns `{ token, user }` where `user` (`UserPublic`) includes `tenantId` and `role` (now possibly `platform_admin`).
-5. Client stores `token` in `localStorage` (unchanged) and routes the user based on `user.role` (see §7.1).
+1. Client POSTs credentials to `/api/v1/auth/login`, with an optional `tenantSlug`.
+2. **Tenant resolution**: if `tenantSlug` is a non-empty (trimmed) string, the server looks up `tenantStore.getTenantBySlug(tenantSlug)`. If no tenant matches, return `401 INVALID_CREDENTIALS` immediately (an unknown slug is indistinguishable from bad credentials — no tenant-existence leak). On a match, `tenantId = tenant.id`. If `tenantSlug` is omitted/blank, `tenantId = null` (the platform admin pool).
+3. Server looks up the user via `getUserByUsername(username, tenantId)` — i.e. within the resolved scope only — and verifies the bcrypt password. Either failure → `401 INVALID_CREDENTIALS` (checked before any suspension check, so suspension status is never leaked to a failed-credentials probe).
+4. If a tenant was resolved (`tenantSlug` provided) and `tenant.status === "suspended"`, return `403 TENANT_SUSPENDED` and do not issue a token.
+5. On success, server returns `{ token, user }` where `user` (`UserPublic`) includes `tenantId` and `role` (now possibly `platform_admin`).
+6. Client stores `token` in `localStorage` (unchanged) and routes the user based on `user.role` (see §7.1).
 
 ---
 
@@ -91,15 +92,15 @@ When creating a tenant without an explicit `slug`, the server derives one from `
 | `POST /tenants`               | ✅                | ❌ 403                         | ❌ 403                      |
 | `PUT /tenants/:id`             | ✅                | ❌ 403                         | ❌ 403                      |
 | `DELETE /tenants/:id`          | ✅                | ❌ 403                         | ❌ 403                      |
-| `GET /users` (own tenant)      | ❌ 403 `NO_TENANT` | ✅ (own tenant only)           | ✅ (own tenant, read-only)  |
-| `POST /users`                  | ❌ 403 `NO_TENANT` | ✅ (own tenant only)           | ❌ 403 `FORBIDDEN`          |
-| `PUT /users/:id`                | ❌ 403 `NO_TENANT` | ✅ (own tenant only, 404 cross-tenant) | ❌ 403 `FORBIDDEN`   |
-| `DELETE /users/:id`             | ❌ 403 `NO_TENANT` | ✅ (own tenant only, 404 cross-tenant) | ❌ 403 `FORBIDDEN`   |
+| `GET /users` (own scope)       | ✅ (platform admin pool, `tenantId: null`) | ✅ (own tenant only) | ✅ (own tenant, read-only) |
+| `POST /users`                  | ✅ (platform admin pool; role forced to `platform_admin`) | ✅ (own tenant only) | ❌ 403 `FORBIDDEN` |
+| `PUT /users/:id`                | ✅ (platform admin pool only, 404 cross-scope) | ✅ (own tenant only, 404 cross-tenant) | ❌ 403 `FORBIDDEN`   |
+| `DELETE /users/:id`             | ✅ (platform admin pool only, 404 cross-scope) | ✅ (own tenant only, 404 cross-tenant) | ❌ 403 `FORBIDDEN`   |
 
 Notes:
-- `platform_admin` cannot access `/users/*` at all (it is not part of any tenant) — middleware returns `403 NO_TENANT`.
+- `platform_admin` manages its own pool of users (`tenantId: null`) via `/users/*`, exactly like a tenant `admin` manages their tenant — `tenantId === null` is treated as just another scope. The `requireUserManager` middleware (replacing `requireAdmin`/`requireTenantScope`) allows both `admin` and `platform_admin` on the write endpoints; `GET /users` only requires authentication.
 - `admin`/`user` cannot access `/tenants/*` at all — middleware returns `403 FORBIDDEN`.
-- Cross-tenant access to `/users/:id` (an id belonging to another tenant) returns `404 NOT_FOUND`, not `403`, to avoid confirming the resource's existence to another tenant's admin.
+- Cross-scope access to `/users/:id` (an id belonging to a different tenant, or to the platform pool vs. a tenant) returns `404 NOT_FOUND`, not `403`, to avoid confirming the resource's existence to another scope's admin.
 
 ---
 
@@ -114,11 +115,12 @@ All responses are JSON. Errors follow the shape:
 ### 5.1 `POST /api/v1/auth/login`
 
 - Auth: none
-- Body: `{ "username": string, "password": string }`
+- Body: `{ "username": string, "password": string, "tenantSlug"?: string }`
+- `tenantSlug` is optional. Blank/omitted → resolves to the platform admin pool (`tenantId: null`); a slug → that tenant's users only. An unknown slug is treated the same as bad credentials.
 - 200: `{ "token": string, "user": UserPublic }`
-- 400: missing fields (`VALIDATION_ERROR`)
-- 401: invalid credentials (`INVALID_CREDENTIALS`)
-- **403: tenant suspended (`TENANT_SUSPENDED`)** — new in v2
+- 400: missing `username`/`password` (`VALIDATION_ERROR`)
+- 401: invalid credentials, including an unrecognized `tenantSlug` (`INVALID_CREDENTIALS`)
+- **403: tenant suspended (`TENANT_SUSPENDED`)** — new in v2 (only possible when `tenantSlug` resolved to a real tenant)
 
 ### 5.2 `GET /api/v1/auth/me`
 
@@ -128,37 +130,38 @@ All responses are JSON. Errors follow the shape:
 
 ### 5.3 `GET /api/v1/users`
 
-- Auth: required, `requireTenantScope` (403 `NO_TENANT` if `tenantId === null`)
-- Returns users belonging to `req.user.tenantId` only (passwordHash stripped)
+- Auth: required (any role)
+- Returns users belonging to `req.user.tenantId` only (passwordHash stripped) — for `platform_admin`, `tenantId` is `null`, so this returns the platform admin pool
 - 200: `{ "users": UserPublic[] }`
 
 ### 5.4 `POST /api/v1/users`
 
-- Auth: required, `requireTenantScope`, admin only
+- Auth: required, `requireUserManager` (`admin` or `platform_admin`)
 - Body: `{ "username": string, "password": string, "fullName": string, "role": "admin" | "user" }`
-- Server forces `tenantId = req.user.tenantId` on the created user (any client-supplied `tenantId` is ignored)
+- Server forces `tenantId = req.user.tenantId` on the created user (any client-supplied `tenantId` is ignored). For `platform_admin` callers (`tenantId === null`), `role` is ignored and forced to `"platform_admin"`.
 - 201: `{ "user": UserPublic }`
 - 400: validation error
-- 409: username already exists globally (`USERNAME_TAKEN`)
-- 403: non-admin caller, or platform_admin (`NO_TENANT`)
+- 409: username already taken within this tenant (or platform admin pool) (`USERNAME_TAKEN`)
+- 403: non-admin, non-platform_admin caller (`FORBIDDEN`)
 
 ### 5.5 `PUT /api/v1/users/:id`
 
-- Auth: required, `requireTenantScope`, admin only
+- Auth: required, `requireUserManager` (`admin` or `platform_admin`)
 - Body (all optional): `{ "username"?, "password"?, "fullName"?, "role"? }`
-- 404 if `:id` does not exist OR belongs to a different tenant
+- 404 if `:id` does not exist OR belongs to a different scope (different tenant, or tenant vs. platform pool)
 - 200: `{ "user": UserPublic }`
-- 409: username already taken (global) by another user
-- 400: `LAST_ADMIN` — cannot demote the last remaining **admin within this tenant**
-- 403: non-admin caller, or platform_admin (`NO_TENANT`)
+- 409: username already taken within this tenant (or platform admin pool) by another user
+- 400: `LAST_ADMIN` — cannot demote the last remaining admin **within this scope** (`admin` for a tenant, `platform_admin` for the platform pool)
+- 403: non-admin, non-platform_admin caller (`FORBIDDEN`)
+- For `platform_admin` callers (`tenantId === null`), `role` in the body is ignored — the platform pool's role is fixed at `platform_admin`.
 
 ### 5.6 `DELETE /api/v1/users/:id`
 
-- Auth: required, `requireTenantScope`, admin only
-- 404 if `:id` does not exist OR belongs to a different tenant
+- Auth: required, `requireUserManager` (`admin` or `platform_admin`)
+- 404 if `:id` does not exist OR belongs to a different scope (different tenant, or tenant vs. platform pool)
 - 204: no content
-- 400: `LAST_ADMIN` — cannot delete the last remaining **admin within this tenant**
-- 403: non-admin caller, or platform_admin (`NO_TENANT`)
+- 400: `LAST_ADMIN` — cannot delete the last remaining admin **within this scope** (`admin` for a tenant, `platform_admin` for the platform pool)
+- 403: non-admin, non-platform_admin caller (`FORBIDDEN`)
 
 ### 5.7 `GET /api/v1/tenants` — **new**
 
@@ -174,8 +177,10 @@ All responses are JSON. Errors follow the shape:
 - If `admin` is provided, an initial `role: "admin"` user is created for the new tenant atomically (validated — including username uniqueness — *before* the tenant is created, so a rejected admin never leaves an orphaned tenant behind).
 - 201: `{ "tenant": TenantWithEmployeeCount, "adminUser"?: UserPublic }` (`adminUser` present only if `admin` was provided; `employeeCount` is `1` in that case, else `0`)
 - 400: validation error (`VALIDATION_ERROR`)
-- 409: explicit slug already taken (`SLUG_TAKEN`), or `admin.username` already taken (`USERNAME_TAKEN`)
+- 409: explicit slug already taken (`SLUG_TAKEN`)
 - 403: non-platform-admin caller
+
+Note: `admin.username` is **not** checked for uniqueness here — a brand-new tenant has zero users, so its initial admin's username can never collide within that tenant's scope (usernames are unique per-tenant, not globally). The same username can be reused across different tenants.
 
 ### 5.9 `PUT /api/v1/tenants/:id` — **new**
 
@@ -228,8 +233,8 @@ All responses are JSON. Errors follow the shape:
 
 ## 6. Validation Rules
 
-Carried over from v1 (unchanged):
-- `username`: required, 3–32 chars, alphanumeric + underscore, **globally** unique, case-sensitive.
+Carried over from v1, with one change:
+- `username`: required, 3–32 chars, alphanumeric + underscore, unique **per-tenant** (and per platform admin pool), case-sensitive — see §2.
 - `password`: required on create, minimum 6 chars when provided.
 - `fullName`: required, 1–100 chars.
 - `role` (user-management endpoints): must be `admin` or `user` (`platform_admin` cannot be assigned via `/users`).
@@ -250,6 +255,7 @@ New in v2:
 | `/login`       | Login Page          | Public                                    |
 | `/dashboard`   | Dashboard Page (user mgmt, tenant-scoped) | `admin` \| `user` |
 | `/admin/tenants` | Platform Admin — Tenants Page | `platform_admin` only |
+| `/admin/team`  | Dashboard Page, reused for the platform admin pool (`tenantId: null`) | `platform_admin` only |
 | `/`, `*`       | —                   | Redirect via role-aware `RoleRedirect` |
 
 - Unauthenticated users hitting any protected route are redirected to `/login` (unchanged `ProtectedRoute`).
@@ -259,25 +265,36 @@ New in v2:
 
 ### 7.2 Login Page
 
-Unchanged fields/flow from v1 (§5.2 of specs.md), plus:
+Fields/flow from v1 (§5.2 of specs.md), plus:
+- New optional **Tenant** field, placed before Username, with hint text "leave blank for platform admin". Trimmed before submit; included in the `POST /auth/login` body as `tenantSlug` only if non-empty — otherwise omitted entirely (resolves to the platform admin pool).
 - New error case: `403 TENANT_SUSPENDED` → inline message "Your organization's account has been suspended. Contact your administrator."
+- An unrecognized Tenant slug surfaces as the same generic `401 INVALID_CREDENTIALS` message as a bad username/password (no tenant-existence leak).
 
 ### 7.3 Dashboard Page (tenant user management)
 
-Unchanged behavior from v1 (§5.3 of specs.md) — backend already scopes `GET /users` to the caller's tenant, so no client-side filtering changes are needed. Visual updates only:
-- lucide-react icons added: summary cards (`Users`, `ShieldCheck`, `UserCircle`), role badges (`Shield` for admin, `User` for user), header `LogOut` icon, action buttons `Plus` (Add User), `Pencil` (Edit), `Trash2` (Delete).
+Behavior from v1 (§5.3 of specs.md) — backend already scopes `GET /users` to the caller's tenant, so no client-side filtering changes are needed. Visual updates:
+- lucide-react icons added: summary cards (`Users`, `ShieldCheck`, `UserCircle`), role badges (`Shield` for admin, `ShieldCheck` for `platform_admin`, `User` for user), header `LogOut` icon, action buttons `Plus` (Add User), `Pencil` (Edit), `Trash2` (Delete).
 - framer-motion: page entrance (fade+slide, replacing/augmenting `.animate-in`), summary cards and table rows animate in with a stagger, respecting `prefers-reduced-motion` via framer-motion's `useReducedMotion()`.
 - Displaying the tenant's name on this page is explicitly **out of scope** for v2 (would require a new endpoint/permission surface) — tracked as a future enhancement.
 
+**Reused for the platform admin pool (`/admin/team`, new in v2)**: this same component renders for `platform_admin` users at `/admin/team`, scoped server-side to `tenantId: null` (their own pool of `platform_admin` users) — no separate page or component. When `currentUser.role === "platform_admin"`:
+- Page title reads "Platform Team" instead of "User Management".
+- The "Admins" summary card is relabeled "Platform Admins" and counts users with `role === "platform_admin"`.
+- A small tab nav (`.admin-tabs`, "Tenants" / "Team", using `Link`/`useLocation` for active-state styling) is shown in the header, linking between `/admin/tenants` and `/admin/team`. The same nav is added to the Tenants Page (§7.5) so platform admins can move between the two views.
+- `UserModal` is opened with `lockRoleTo="platform_admin"` (see §7.4) — new platform admins are always created with that role, and the role of existing ones cannot be changed via this UI.
+- Add/Edit/Delete actions are gated by `canManage = role === "admin" || role === "platform_admin"` (replacing the old `isAdmin` check), so platform admins get the same management affordances tenant admins have.
+
 ### 7.4 User Modal
 
-Unchanged fields/validation from v1 (§5.4 of specs.md). Visual updates:
+Fields/validation from v1 (§5.4 of specs.md). Visual updates:
 - `AnimatePresence` + `motion` for overlay fade and panel scale/slide-in (`scale(0.97)→1`, `translateY(8px)→0`, ~200ms), matching the timing already specified in v1 §9.6.
 - Icon in title (`UserPlus` create / `UserCog` edit) and an icon close button (`X`) in addition to existing overlay-click/Escape close.
 
+New optional prop **`lockRoleTo?: Role`** (used by the platform pool view, §7.3): when set, the Role `<select>` is hidden entirely, `form.role` initializes to `lockRoleTo` (create) or `user.role` (edit), and `role` is omitted from the `createUser`/`updateUser` payload (the server forces/ignores it for the platform pool regardless).
+
 ### 7.5 Platform Admin — Tenants Page (`/admin/tenants`) — **new**
 
-- Sticky header: brand mark with `Building2` icon + "Platform Admin" wordmark, current platform-admin user info (full name + `platform_admin` role badge), Logout button (`LogOut` icon).
+- Sticky header: brand mark with `Building2` icon + "Platform Admin" wordmark, a tab nav (`.admin-tabs`, "Tenants" / "Team", linking to `/admin/tenants` and `/admin/team` — see §7.3), current platform-admin user info (full name + `platform_admin` role badge), Logout button (`LogOut` icon).
 - Summary cards (responsive grid, same pattern as Dashboard):
   - **Total Tenants** — `Building2` icon, count of all tenants.
   - **Total Employees** — `Users` icon, sum of `employeeCount` across all tenants.
@@ -379,10 +396,10 @@ On startup, `server/src/services/seed.ts` runs `seedIfNeeded()`:
 Carried over from v1 (§7 of specs.md): concurrent writes serialized via write queue, expired/invalid JWT → `401` + forced logout, malformed JSON → re-seed without crashing.
 
 New in v2:
-- Deleting/demoting the last `admin` within a tenant is rejected (`400 LAST_ADMIN`), scoped per-tenant (does not consider admins in other tenants).
-- A `platform_admin` calling any `/users/*` endpoint receives `403 NO_TENANT`.
+- Deleting/demoting the last admin within a scope is rejected (`400 LAST_ADMIN`), scoped per-tenant for `admin`, and per-platform-pool for `platform_admin` (does not consider admins in other tenants or the other pool).
 - An `admin`/`user` calling any `/tenants/*` endpoint receives `403 FORBIDDEN`.
-- `PUT`/`DELETE /users/:id` for an id belonging to a different tenant returns `404 NOT_FOUND` (not `403`), to avoid confirming cross-tenant resource existence.
+- `PUT`/`DELETE /users/:id` for an id belonging to a different scope (different tenant, or tenant vs. platform pool) returns `404 NOT_FOUND` (not `403`), to avoid confirming cross-scope resource existence.
+- Username collisions are scoped per-tenant/per-pool (`409 USERNAME_TAKEN`) — the same username may exist in multiple tenants and in the platform admin pool simultaneously. Login disambiguates via the optional `tenantSlug` (§3, §5.1); an unrecognized slug returns `401 INVALID_CREDENTIALS`.
 - `DELETE /tenants/:id` for a tenant with `employeeCount > 0` returns `400 TENANT_HAS_USERS`; no cascading delete is implemented.
 - Login for a user whose tenant is `suspended` returns `403 TENANT_SUSPENDED` (checked only after credentials are verified).
 - Tenant slug collisions return `409 SLUG_TAKEN` (only for explicitly-provided slugs; auto-derived slugs are de-duplicated server-side by appending `-2`, `-3`, etc.).
@@ -405,12 +422,14 @@ New in v2:
 - [x] Platform admin can view tenants with accurate `employeeCount`, create/edit/delete tenants, and toggle `active`/`suspended` status.
 - [x] Deleting a tenant with `employeeCount > 0` is blocked (`400 TENANT_HAS_USERS`), reflected in disabled UI state.
 - [x] Tenant slug uniqueness enforced (`409 SLUG_TAKEN`), auto-derivation works when slug omitted.
-- [x] Tenant admin (`admin`/`admin123`) logs in and is redirected to `/dashboard`, sees only their tenant's users.
-- [x] `platform_admin` cannot reach `/users/*` (403 `NO_TENANT`); `admin`/`user` cannot reach `/tenants/*` (403 `FORBIDDEN`) or `/admin/tenants` (redirected client-side).
-- [x] Cross-tenant `PUT`/`DELETE /users/:id` returns `404`.
-- [x] Per-tenant `LAST_ADMIN` guard enforced independently for each tenant.
+- [x] Tenant admin (`admin`/`admin123`) logs in (with Tenant slug `default`) and is redirected to `/dashboard`, sees only their tenant's users.
+- [x] `admin`/`user` cannot reach `/tenants/*` (403 `FORBIDDEN`) or `/admin/tenants`/`/admin/team` (redirected client-side).
+- [x] Cross-scope `PUT`/`DELETE /users/:id` (different tenant, or tenant vs. platform pool) returns `404`.
+- [x] `LAST_ADMIN` guard enforced independently per scope (each tenant, and the platform admin pool).
 - [x] Suspending a tenant blocks login for its users with `403 TENANT_SUSPENDED` and a clear inline message.
-- [x] Username uniqueness remains global; login requires no tenant selector.
+- [x] Username uniqueness is per-tenant/per-pool; the same username can be reused across tenants. Login form has an optional Tenant field (blank = platform admin pool); an unrecognized slug returns `401 INVALID_CREDENTIALS`.
+- [x] `platform_admin` manages its own pool of `platform_admin` users at `/admin/team` (reusing the Dashboard + UserModal with `lockRoleTo`), with the same `LAST_ADMIN` protection as tenant admins.
+- [x] `POST /tenants` no longer returns `409 USERNAME_TAKEN` — a new tenant's initial admin username can never collide.
 - [x] framer-motion page/list/modal animations present and respect `prefers-reduced-motion`.
 - [x] lucide-react icons used per §8.1 icon map.
 - [x] Both dashboards responsive 320px–1440px (table→card collapse intact).

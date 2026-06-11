@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Pencil, Plus, Shield, ShieldCheck, Trash2, User, UserCircle, Users, LogOut } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  Building2,
+  Pencil,
+  Plus,
+  Shield,
+  ShieldCheck,
+  Trash2,
+  User,
+  UserCircle,
+  Users,
+  LogOut,
+} from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import { deleteUser, getUsers } from "../api/users";
 import { getApiErrorMessage } from "../api/client";
@@ -10,6 +22,7 @@ import "./DashboardPage.css";
 
 const ROLE_ICONS: Record<string, typeof Shield> = {
   admin: Shield,
+  platform_admin: ShieldCheck,
   user: User,
 };
 
@@ -29,7 +42,9 @@ export function DashboardPage() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const isAdmin = currentUser?.role === "admin";
+  const isPlatformAdmin = currentUser?.role === "platform_admin";
+  const canManage = currentUser?.role === "admin" || isPlatformAdmin;
+  const location = useLocation();
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
@@ -73,7 +88,8 @@ export function DashboardPage() {
   }, []);
 
   const totalUsers = users.length;
-  const adminCount = useMemo(() => users.filter((u) => u.role === "admin").length, [users]);
+  const adminRole = isPlatformAdmin ? "platform_admin" : "admin";
+  const adminCount = useMemo(() => users.filter((u) => u.role === adminRole).length, [users, adminRole]);
 
   function handleSaved(savedUser: UserPublic) {
     setUsers((prev) => {
@@ -141,8 +157,23 @@ export function DashboardPage() {
           <span className="brand-mark" aria-hidden="true">
             <Users size={18} />
           </span>
-          <h1 className="dashboard-title">User Management</h1>
+          <h1 className="dashboard-title">{isPlatformAdmin ? "Platform Team" : "User Management"}</h1>
         </div>
+        {isPlatformAdmin && (
+          <nav className="admin-tabs" aria-label="Platform admin sections">
+            <Link
+              to="/admin/tenants"
+              className={`admin-tab ${location.pathname === "/admin/tenants" ? "active" : ""}`}
+            >
+              <Building2 size={14} aria-hidden="true" />
+              Tenants
+            </Link>
+            <Link to="/admin/team" className={`admin-tab ${location.pathname === "/admin/team" ? "active" : ""}`}>
+              <Users size={14} aria-hidden="true" />
+              Team
+            </Link>
+          </nav>
+        )}
         <div className="dashboard-header-right">
           {currentUser && (
             <div className="current-user-info">
@@ -193,7 +224,7 @@ export function DashboardPage() {
           </motion.div>
           <motion.div className="summary-card" variants={listItemVariants}>
             <span className="summary-card-label">
-              <ShieldCheck size={14} aria-hidden="true" /> Admins
+              <ShieldCheck size={14} aria-hidden="true" /> {isPlatformAdmin ? "Platform Admins" : "Admins"}
             </span>
             <span className="summary-card-value">{adminCount}</span>
           </motion.div>
@@ -211,7 +242,7 @@ export function DashboardPage() {
         <section className="users-section">
           <div className="users-section-header">
             <h2>Users</h2>
-            {isAdmin && (
+            {canManage && (
               <button
                 type="button"
                 className="btn btn-primary"
@@ -242,7 +273,7 @@ export function DashboardPage() {
                     <th scope="col">Full Name</th>
                     <th scope="col">Role</th>
                     <th scope="col">Created At</th>
-                    {isAdmin && <th scope="col">Actions</th>}
+                    {canManage && <th scope="col">Actions</th>}
                   </tr>
                 </thead>
                 <motion.tbody variants={listContainerVariants} initial="hidden" animate="visible">
@@ -259,7 +290,7 @@ export function DashboardPage() {
                           </span>
                         </td>
                         <td data-label="Created At">{formatDate(user.createdAt)}</td>
-                        {isAdmin && (
+                        {canManage && (
                           <td data-label="Actions" className="actions-cell">
                             <button
                               type="button"
@@ -296,11 +327,16 @@ export function DashboardPage() {
 
       <AnimatePresence>
         {modalState.mode === "create" && (
-          <UserModal onClose={() => setModalState({ mode: "closed" })} onSaved={handleSaved} />
+          <UserModal
+            lockRoleTo={isPlatformAdmin ? "platform_admin" : undefined}
+            onClose={() => setModalState({ mode: "closed" })}
+            onSaved={handleSaved}
+          />
         )}
         {modalState.mode === "edit" && (
           <UserModal
             user={modalState.user}
+            lockRoleTo={isPlatformAdmin ? "platform_admin" : undefined}
             onClose={() => setModalState({ mode: "closed" })}
             onSaved={handleSaved}
           />
