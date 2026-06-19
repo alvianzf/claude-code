@@ -154,10 +154,11 @@ export function DashboardPage() {
     <div className="dashboard-page">
       <header className="dashboard-header">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <Users size={18} />
-          </span>
-          <h1 className="dashboard-title">{isPlatformAdmin ? "Platform Team" : "User Management"}</h1>
+          <img src="/emilie-logo.png" alt="EMILIE" className="brand-mark dashboard-logo" />
+          <div>
+            <h1 className="dashboard-title">EMILIE</h1>
+            <span className="dashboard-subtitle">{isPlatformAdmin ? "Platform Admin" : "Hormonal Health"}</span>
+          </div>
         </div>
         {isPlatformAdmin && (
           <nav className="admin-tabs" aria-label="Platform admin sections">

@@ -159,10 +159,11 @@ export function TenantsAdminPage() {
     <div className="tenants-page">
       <header className="tenants-header">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <Building2 size={18} />
-          </span>
-          <h1 className="tenants-title">Platform Admin</h1>
+          <img src="/emilie-logo.png" alt="EMILIE" className="brand-mark dashboard-logo" />
+          <div>
+            <h1 className="tenants-title">EMILIE</h1>
+            <span className="dashboard-subtitle">Platform Admin</span>
+          </div>
         </div>
         <nav className="admin-tabs" aria-label="Platform admin sections">
           <Link

@@ -1,9 +1,10 @@
+/* ── Overlay: wine-tinted blurred backdrop ────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(17, 21, 31, 0.45);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(50, 12, 20, 0.48);
+  backdrop-filter: blur(4px) saturate(1.2);
+  -webkit-backdrop-filter: blur(4px) saturate(1.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,15 +12,27 @@
   z-index: 100;
 }
 
+/* ── Modal card ────────────────────────────────────────────── */
 .modal {
   width: 100%;
   max-width: 440px;
   max-height: 90vh;
   overflow-y: auto;
-  background-color: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-modal);
+  background-color: var(--surface);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-lg);
   padding: var(--space-6);
+  position: relative;
+}
+
+/* Wine accent top stripe */
+.modal::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--brand-grad);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
 }
 
 .modal-header {
@@ -28,14 +41,18 @@
   justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-5);
+  margin-top: 8px;
 }
 
 .modal-title {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
   margin: 0;
 }
 
@@ -46,39 +63,76 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: 50%;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--text-3);
   cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  transition: border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
 }
 
 .modal-close:hover {
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  border-color: var(--p-300);
+  background-color: var(--p-50);
+  color: var(--p-700);
 }
 
 .modal-close:focus-visible {
   outline: none;
-  box-shadow: var(--shadow-focus);
+  box-shadow: 0 0 0 3px var(--p-200);
 }
 
+/* ── Form inputs inside modal ──────────────────────────────── */
+.modal .form-field label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.modal .form-field input,
+.modal .form-field select {
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--r-md);
+  padding: 10px 13px;
+  font-size: 14.5px;
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+
+.modal .form-field input:focus,
+.modal .form-field select:focus {
+  outline: none;
+  border-color: var(--p-500);
+  box-shadow: 0 0 0 3px var(--p-100);
+}
+
+/* ── Error state ───────────────────────────────────────────── */
 .modal-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: var(--space-4);
   padding: 12px 16px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-danger-soft);
-  color: var(--color-danger);
-  border: 1px solid var(--color-danger-border);
+  border-radius: var(--r-md);
+  background-color: var(--er-bg);
+  color: var(--er-strong);
+  border: 1px solid #f0c9c2;
   font-size: 0.875rem;
 }
 
+/* ── Actions row ───────────────────────────────────────────── */
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 480px) {

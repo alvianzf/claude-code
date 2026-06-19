@@ -2,8 +2,10 @@
   min-height: 100svh;
   display: flex;
   flex-direction: column;
+  background-color: var(--bg);
 }
 
+/* ── Header: floating glass bar ────────────────────────────── */
 .tenants-header {
   position: sticky;
   top: 0;
@@ -12,15 +14,20 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
+  padding: 12px var(--space-6);
   background-color: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--color-border);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border-bottom: 1px solid rgba(116, 18, 42, 0.1);
+  box-shadow: 0 2px 16px rgba(60, 15, 25, 0.06);
 }
 
 .tenants-title {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--p-700);
 }
 
 .tenants-header-right {
@@ -40,8 +47,10 @@
 .current-user-name {
   font-weight: 600;
   font-size: 0.9375rem;
+  color: var(--text);
 }
 
+/* ── Main content ──────────────────────────────────────────── */
 .tenants-main {
   flex: 1;
   width: 100%;
@@ -53,7 +62,7 @@
   gap: var(--space-6);
 }
 
-/* Summary cards */
+/* ── Summary cards ─────────────────────────────────────────── */
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -63,30 +72,30 @@
 .summary-card {
   position: relative;
   overflow: hidden;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition: transform var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
 }
 
 .summary-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  box-shadow: var(--sh-md);
+  border-color: var(--p-200);
 }
 
 .summary-card::before {
   content: "";
   position: absolute;
-  inset: 0 auto auto 0;
-  width: 100%;
+  inset: 0 0 auto 0;
   height: 4px;
-  background: var(--gradient-primary);
-  opacity: 0.9;
+  background: var(--brand-grad);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 
 .summary-card-label {
@@ -95,23 +104,27 @@
   gap: 6px;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: var(--text-3);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
 }
 
 .summary-card-value {
-  font-size: 2rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 500;
   letter-spacing: -0.02em;
+  color: var(--p-700);
+  line-height: 1;
 }
 
-/* Tenants table section */
+/* ── Tenants section ───────────────────────────────────────── */
 .tenants-section {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
   padding: var(--space-5);
 }
 
@@ -124,49 +137,59 @@
 }
 
 .tenants-section-header h2 {
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text);
 }
 
 .tenants-loading,
 .tenants-empty {
-  color: var(--color-text-muted);
+  color: var(--text-3);
   padding: var(--space-6) 0;
   text-align: center;
+  font-size: 14.5px;
 }
 
 .tenants-table-wrapper {
   overflow-x: auto;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
 }
 
+/* ── Data table ────────────────────────────────────────────── */
 .tenants-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 14px;
+  min-width: 560px;
 }
 
-.tenants-table th,
-.tenants-table td {
+.tenants-table thead th {
+  background: var(--n-50);
   text-align: left;
-  padding: var(--space-3) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.9375rem;
-}
-
-.tenants-table th {
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 13px 16px;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
+.tenants-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--n-100);
+  color: var(--text);
+}
+
 .tenants-table tbody tr {
-  transition: background-color var(--transition-fast);
+  transition: background-color var(--t-fast) var(--ease);
 }
 
 .tenants-table tbody tr:hover {
-  background-color: var(--color-bg);
+  background-color: var(--p-50);
 }
 
 .tenants-table tbody tr:last-child td {
@@ -183,7 +206,7 @@
   padding: 7px 9px;
 }
 
-/* Tablet */
+/* ── Tablet ────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .tenants-main {
     padding: var(--space-5) var(--space-4);
@@ -194,7 +217,7 @@
   }
 }
 
-/* Mobile */
+/* ── Mobile ────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .tenants-header {
     flex-direction: column;
@@ -224,7 +247,6 @@
     flex-wrap: wrap;
   }
 
-  /* Convert table to stacked card rows on small screens */
   .tenants-table thead {
     display: none;
   }
@@ -237,9 +259,13 @@
     width: 100%;
   }
 
+  .tenants-table-wrapper {
+    border: none;
+  }
+
   .tenants-table tr {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
     margin-bottom: var(--space-3);
     padding: var(--space-2) var(--space-3);
   }
@@ -260,10 +286,10 @@
   .tenants-table td::before {
     content: attr(data-label);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-text-muted);
+    letter-spacing: 0.05em;
+    color: var(--text-3);
   }
 
   .actions-cell {
