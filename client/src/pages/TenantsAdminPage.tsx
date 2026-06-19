@@ -280,6 +280,14 @@ export function TenantsAdminPage() {
                         <td data-label="Employees">{tenant.employeeCount}</td>
                         <td data-label="Created At">{formatDate(tenant.createdAt)}</td>
                         <td data-label="Actions" className="actions-cell">
+                          <Link
+                            to={`/admin/team?tenantId=${tenant.id}`}
+                            state={{ tenantName: tenant.name }}
+                            className="btn btn-secondary btn-sm"
+                          >
+                            <Users size={14} aria-hidden="true" />
+                            Manage Users
+                          </Link>
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"

@@ -4,10 +4,12 @@ import type { User } from "../types.js";
 
 const getUserById = vi.fn();
 const getUserByUsername = vi.fn();
+const getUsersByTenant = vi.fn();
 const readUsers = vi.fn();
 const updateUser = vi.fn();
 const deleteUser = vi.fn();
 const addUser = vi.fn();
+const getTenantById = vi.fn();
 
 vi.mock("../services/userStore.js", async () => {
   const actual = await vi.importActual<typeof import("../services/userStore.js")>(
@@ -17,6 +19,7 @@ vi.mock("../services/userStore.js", async () => {
     ...actual,
     getUserById: (...args: unknown[]) => getUserById(...args),
     getUserByUsername: (...args: unknown[]) => getUserByUsername(...args),
+    getUsersByTenant: (...args: unknown[]) => getUsersByTenant(...args),
     readUsers: (...args: unknown[]) => readUsers(...args),
     updateUser: (...args: unknown[]) => updateUser(...args),
     deleteUser: (...args: unknown[]) => deleteUser(...args),
@@ -24,7 +27,12 @@ vi.mock("../services/userStore.js", async () => {
   };
 });
 
+vi.mock("../services/tenantStore.js", () => ({
+  getTenantById: (...args: unknown[]) => getTenantById(...args),
+}));
+
 const {
+  listUsers: listUsersHandler,
   createUser: createUserHandler,
   updateUser: updateUserHandler,
   deleteUser: deleteUserHandler,
@@ -65,6 +73,7 @@ describe("users.controller - per-tenant LAST_ADMIN", () => {
   beforeEach(() => {
     getUserById.mockReset();
     getUserByUsername.mockReset();
+    getUsersByTenant.mockReset();
     readUsers.mockReset();
     updateUser.mockReset();
     deleteUser.mockReset();
@@ -136,10 +145,12 @@ describe("users.controller - platform admin pool (tenantId: null)", () => {
   beforeEach(() => {
     getUserById.mockReset();
     getUserByUsername.mockReset();
+    getUsersByTenant.mockReset();
     readUsers.mockReset();
     updateUser.mockReset();
     deleteUser.mockReset();
     addUser.mockReset();
+    getTenantById.mockReset();
   });
 
   it("forces role=platform_admin and tenantId=null when creating a user in the platform pool", async () => {
@@ -182,15 +193,65 @@ describe("users.controller - platform admin pool (tenantId: null)", () => {
     expect(status).toHaveBeenCalledWith(201);
   });
 
-  it("returns 404 NOT_FOUND for a tenant-scoped user when caller is platform_admin", async () => {
-    getUserById.mockResolvedValue(makeUser({ id: "user-9", tenantId: "tenant-a" }));
+  it("allows platform admin to create a user for a specific tenant", async () => {
+    getUserByUsername.mockResolvedValue(undefined);
+    getTenantById.mockResolvedValue({ id: "tenant-a", name: "Tenant A" });
+    addUser.mockImplementation((user) => Promise.resolve(user));
 
-    const { req, res } = makeReqRes({ id: "user-9" }, { fullName: "Hacked" }, platformCaller);
+    const { req, res, status } = makeReqRes(
+      {},
+      { username: "tenantuser", password: "password123", fullName: "Tenant User", role: "user", tenantId: "tenant-a" },
+      platformCaller
+    );
 
-    await expect(updateUserHandler(req, res)).rejects.toMatchObject({
+    await createUserHandler(req, res);
+
+    expect(getTenantById).toHaveBeenCalledWith("tenant-a");
+    expect(addUser).toHaveBeenCalledWith(
+      expect.objectContaining({ role: "user", tenantId: "tenant-a" })
+    );
+    expect(status).toHaveBeenCalledWith(201);
+  });
+
+  it("throws 404 when platform admin creates user for non-existent tenant", async () => {
+    getTenantById.mockResolvedValue(undefined);
+
+    const { req, res } = makeReqRes(
+      {},
+      { username: "tenantuser", password: "password123", fullName: "Tenant User", role: "user", tenantId: "invalid-tenant" },
+      platformCaller
+    );
+
+    await expect(createUserHandler(req, res)).rejects.toMatchObject({
       status: 404,
       code: "NOT_FOUND",
     });
+  });
+
+  it("allows updating a tenant-scoped user when caller is platform_admin", async () => {
+    const target = makeUser({ id: "user-9", role: "user", tenantId: "tenant-a", fullName: "Old Name" });
+    getUserById.mockResolvedValue(target);
+    updateUser.mockResolvedValue({ ...target, fullName: "New Name" });
+
+    const { req, res, status } = makeReqRes({ id: "user-9" }, { fullName: "New Name" }, platformCaller);
+
+    await updateUserHandler(req, res);
+
+    expect(status).toHaveBeenCalledWith(200);
+    expect(updateUser).toHaveBeenCalledWith("user-9", expect.objectContaining({ fullName: "New Name" }));
+  });
+
+  it("allows deleting a tenant-scoped user when caller is platform_admin", async () => {
+    const target = makeUser({ id: "user-9", role: "user", tenantId: "tenant-a" });
+    getUserById.mockResolvedValue(target);
+    deleteUser.mockResolvedValue(true);
+
+    const { req, res, status } = makeReqRes({ id: "user-9" }, {}, platformCaller);
+
+    await deleteUserHandler(req, res);
+
+    expect(status).toHaveBeenCalledWith(204);
+    expect(deleteUser).toHaveBeenCalledWith("user-9");
   });
 
   it("blocks deleting the last platform admin", async () => {

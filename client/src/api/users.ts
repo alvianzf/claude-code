@@ -19,8 +19,9 @@ export async function getMe(): Promise<MeResponse> {
   return data;
 }
 
-export async function getUsers(): Promise<UsersResponse> {
-  const { data } = await apiClient.get<UsersResponse>("/users");
+export async function getUsers(tenantId?: string | null): Promise<UsersResponse> {
+  const url = tenantId ? `/users?tenantId=${tenantId}` : "/users";
+  const { data } = await apiClient.get<UsersResponse>(url);
   return data;
 }
 

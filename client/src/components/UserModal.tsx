@@ -13,6 +13,8 @@ interface UserModalProps {
   user?: UserPublic;
   /** When set, the role is fixed to this value: the role select is hidden and not sent to the API. */
   lockRoleTo?: Role;
+  /** Optional tenantId to lock/assign this user to (for platform admin). */
+  lockTenantIdTo?: string | null;
   onClose: () => void;
   onSaved: (user: UserPublic) => void;
 }
@@ -36,7 +38,7 @@ const overlayVariants = {
   visible: { opacity: 1 },
 };
 
-export function UserModal({ user, lockRoleTo, onClose, onSaved }: UserModalProps) {
+export function UserModal({ user, lockRoleTo, lockTenantIdTo, onClose, onSaved }: UserModalProps) {
   const isEditMode = Boolean(user);
   const titleId = useId();
   const prefersReducedMotion = useReducedMotion();
@@ -128,6 +130,7 @@ export function UserModal({ user, lockRoleTo, onClose, onSaved }: UserModalProps
             fullName: form.fullName,
             password: form.password,
             role: lockRoleTo ?? form.role,
+            tenantId: lockTenantIdTo,
           })
         ).user;
       }

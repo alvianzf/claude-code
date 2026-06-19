@@ -45,11 +45,12 @@ export function DashboardPage() {
   const isPlatformAdmin = currentUser?.role === "platform_admin";
   const canManage = currentUser?.role === "admin" || isPlatformAdmin;
   const location = useLocation();
+  const targetTenantId = new URLSearchParams(location.search).get("tenantId");
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { users: fetchedUsers } = await getUsers();
+      const { users: fetchedUsers } = await getUsers(targetTenantId);
       setUsers(fetchedUsers);
       setError(null);
     } catch (err) {
@@ -57,14 +58,14 @@ export function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [targetTenantId]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchUsers() {
       try {
-        const { users: fetchedUsers } = await getUsers();
+        const { users: fetchedUsers } = await getUsers(targetTenantId);
         if (!cancelled) {
           setUsers(fetchedUsers);
           setError(null);
@@ -85,10 +86,10 @@ export function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [targetTenantId]);
 
   const totalUsers = users.length;
-  const adminRole = isPlatformAdmin ? "platform_admin" : "admin";
+  const adminRole = isPlatformAdmin && !targetTenantId ? "platform_admin" : "admin";
   const adminCount = useMemo(() => users.filter((u) => u.role === adminRole).length, [users, adminRole]);
 
   function handleSaved(savedUser: UserPublic) {
@@ -169,7 +170,10 @@ export function DashboardPage() {
               <Building2 size={14} aria-hidden="true" />
               Tenants
             </Link>
-            <Link to="/admin/team" className={`admin-tab ${location.pathname === "/admin/team" ? "active" : ""}`}>
+            <Link
+              to="/admin/team"
+              className={`admin-tab ${location.pathname === "/admin/team" && !targetTenantId ? "active" : ""}`}
+            >
               <Users size={14} aria-hidden="true" />
               Team
             </Link>
@@ -201,6 +205,13 @@ export function DashboardPage() {
         animate="visible"
         variants={pageVariants}
       >
+        {targetTenantId && (
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <Link to="/admin/tenants" className="btn btn-secondary btn-sm">
+              &larr; Back to Tenants
+            </Link>
+          </div>
+        )}
         {error && (
           <div className="alert alert-error" role="alert">
             {error}{" "}
@@ -242,7 +253,9 @@ export function DashboardPage() {
 
         <section className="users-section">
           <div className="users-section-header">
-            <h2>Users</h2>
+            <h2>
+              {targetTenantId ? `Users for ${location.state?.tenantName || "Tenant"}` : "Users"}
+            </h2>
             {canManage && (
               <button
                 type="button"
@@ -329,7 +342,8 @@ export function DashboardPage() {
       <AnimatePresence>
         {modalState.mode === "create" && (
           <UserModal
-            lockRoleTo={isPlatformAdmin ? "platform_admin" : undefined}
+            lockRoleTo={isPlatformAdmin && !targetTenantId ? "platform_admin" : undefined}
+            lockTenantIdTo={targetTenantId}
             onClose={() => setModalState({ mode: "closed" })}
             onSaved={handleSaved}
           />
@@ -337,7 +351,8 @@ export function DashboardPage() {
         {modalState.mode === "edit" && (
           <UserModal
             user={modalState.user}
-            lockRoleTo={isPlatformAdmin ? "platform_admin" : undefined}
+            lockRoleTo={isPlatformAdmin && !targetTenantId ? "platform_admin" : undefined}
+            lockTenantIdTo={targetTenantId}
             onClose={() => setModalState({ mode: "closed" })}
             onSaved={handleSaved}
           />

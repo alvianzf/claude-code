@@ -85,6 +85,7 @@ export interface CreateUserRequest {
   password: string;
   fullName: string;
   role: Role;
+  tenantId?: string | null;
 }
 
 export interface UpdateUserRequest {

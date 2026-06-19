@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import * as userStore from "../services/userStore.js";
+import * as tenantStore from "../services/tenantStore.js";
 import { hashPassword } from "../utils/password.js";
 import { toPublicUser } from "../utils/serialize.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -12,18 +13,42 @@ import {
 } from "../utils/validation.js";
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
-  const users = await userStore.getUsersByTenant(req.user!.tenantId);
+  let tenantId = req.user!.tenantId;
+  if (req.user!.role === "platform_admin" && typeof req.query.tenantId === "string") {
+    tenantId = req.query.tenantId === "null" || req.query.tenantId === "" ? null : req.query.tenantId;
+  }
+  const users = await userStore.getUsersByTenant(tenantId);
   res.status(200).json({ users: users.map(toPublicUser) });
 }
 
 export async function createUser(req: Request, res: Response): Promise<void> {
   const body = req.body as Record<string, unknown>;
-  const tenantId = req.user!.tenantId;
+  
+  let tenantId = req.user!.tenantId;
+  let role;
+
+  if (req.user!.role === "platform_admin") {
+    if (typeof body.tenantId === "string" && body.tenantId.trim() !== "") {
+      tenantId = body.tenantId.trim();
+      role = validateRole(body.role);
+    } else {
+      tenantId = null;
+      role = "platform_admin" as const;
+    }
+  } else {
+    role = tenantId === null ? "platform_admin" as const : validateRole(body.role);
+  }
+
+  if (tenantId !== null) {
+    const tenant = await tenantStore.getTenantById(tenantId);
+    if (!tenant) {
+      throw new ApiError(404, "NOT_FOUND", "Tenant not found");
+    }
+  }
 
   const username = validateUsername(body.username);
   const password = validatePassword(body.password, true)!;
   const fullName = validateFullName(body.fullName);
-  const role = tenantId === null ? "platform_admin" : validateRole(body.role);
 
   const existing = await userStore.getUserByUsername(username, tenantId);
   if (existing) {
@@ -48,10 +73,9 @@ export async function createUser(req: Request, res: Response): Promise<void> {
 export async function updateUser(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
   const body = req.body as Record<string, unknown>;
-  const tenantId = req.user!.tenantId;
 
   const existing = await userStore.getUserById(id);
-  if (!existing || existing.tenantId !== tenantId) {
+  if (!existing || (req.user!.role !== "platform_admin" && existing.tenantId !== req.user!.tenantId)) {
     throw new ApiError(404, "NOT_FOUND", "User not found");
   }
 
@@ -65,7 +89,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
   if (body.username !== undefined) {
     const username = validateUsername(body.username);
-    const other = await userStore.getUserByUsername(username, tenantId);
+    const other = await userStore.getUserByUsername(username, existing.tenantId);
     if (other && other.id !== id) {
       throw new ApiError(409, "USERNAME_TAKEN", "Username is already taken");
     }
@@ -83,11 +107,11 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     updates.fullName = validateFullName(body.fullName);
   }
 
-  if (tenantId !== null && body.role !== undefined) {
+  if (existing.tenantId !== null && body.role !== undefined) {
     const role = validateRole(body.role);
     if (existing.role === "admin" && role === "user") {
       const users = await userStore.readUsers();
-      if (userStore.countAdmins(users, tenantId) <= 1) {
+      if (userStore.countAdmins(users, existing.tenantId) <= 1) {
         throw new ApiError(400, "LAST_ADMIN", "Cannot demote the last remaining admin");
       }
     }
@@ -102,16 +126,15 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
 
 export async function deleteUser(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const tenantId = req.user!.tenantId;
 
   const existing = await userStore.getUserById(id);
-  if (!existing || existing.tenantId !== tenantId) {
+  if (!existing || (req.user!.role !== "platform_admin" && existing.tenantId !== req.user!.tenantId)) {
     throw new ApiError(404, "NOT_FOUND", "User not found");
   }
 
   if (existing.role === "admin" || existing.role === "platform_admin") {
     const users = await userStore.readUsers();
-    if (userStore.countAdmins(users, tenantId) <= 1) {
+    if (userStore.countAdmins(users, existing.tenantId) <= 1) {
       throw new ApiError(400, "LAST_ADMIN", "Cannot delete the last remaining admin");
     }
   }
