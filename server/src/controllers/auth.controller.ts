@@ -79,3 +79,20 @@ export async function me(req: Request, res: Response): Promise<void> {
     },
   });
 }
+
+export async function getTenantDetails(req: Request, res: Response): Promise<void> {
+  const { slug } = req.params;
+  if (!slug || typeof slug !== "string") {
+    throw new ApiError(400, "VALIDATION_ERROR", "Tenant slug is required");
+  }
+  const tenant = await tenantStore.getTenantBySlug(slug.trim());
+  if (!tenant) {
+    throw new ApiError(404, "TENANT_NOT_FOUND", "Workspace not found");
+  }
+  res.status(200).json({
+    id: tenant.id,
+    name: tenant.name,
+    slug: tenant.slug,
+    status: tenant.status,
+  });
+}

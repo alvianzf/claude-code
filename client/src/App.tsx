@@ -5,6 +5,7 @@ import { PublicRoute } from "./routes/PublicRoute";
 import { RoleRoute } from "./routes/RoleRoute";
 import { RoleRedirect } from "./routes/RoleRedirect";
 import { LoginPage } from "./pages/LoginPage";
+import { SelectTenantPage } from "./pages/SelectTenantPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { TenantsAdminPage } from "./pages/TenantsAdminPage";
 
@@ -15,6 +16,7 @@ function App() {
         <Routes>
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/select-tenant" element={<SelectTenantPage />} />
             <Route path="/:tenantSlug/login" element={<LoginPage />} />
             <Route path="/:tenantSlug" element={<LoginPage />} />
           </Route>

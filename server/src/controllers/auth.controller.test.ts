@@ -18,7 +18,7 @@ vi.mock("../utils/password.js", () => ({
   comparePassword: vi.fn(async () => true),
 }));
 
-const { login } = await import("./auth.controller.js");
+const { login, getTenantDetails } = await import("./auth.controller.js");
 
 function makeUser(overrides: Partial<User>): User {
   return {
@@ -153,3 +153,44 @@ describe("auth.controller login - validation", () => {
     await expect(login(req, res)).rejects.toMatchObject({ status: 400, code: "VALIDATION_ERROR" });
   });
 });
+
+describe("auth.controller getTenantDetails", () => {
+  beforeEach(() => {
+    getTenantBySlug.mockReset();
+  });
+
+  it("returns tenant details for a valid slug", async () => {
+    getTenantBySlug.mockResolvedValue(makeTenant({ id: "tenant-1", name: "Default Tenant", slug: "default", status: "active" }));
+
+    const req = { params: { slug: "default" } } as unknown as Request;
+    const json = vi.fn();
+    const status = vi.fn(() => ({ json }));
+    const res = { status } as unknown as Response;
+
+    await getTenantDetails(req, res);
+
+    expect(getTenantBySlug).toHaveBeenCalledWith("default");
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json).toHaveBeenCalledWith({
+      id: "tenant-1",
+      name: "Default Tenant",
+      slug: "default",
+      status: "active",
+    });
+  });
+
+  it("throws 404 TENANT_NOT_FOUND when tenant slug is unknown", async () => {
+    getTenantBySlug.mockResolvedValue(undefined);
+
+    const req = { params: { slug: "unknown" } } as unknown as Request;
+    const json = vi.fn();
+    const status = vi.fn(() => ({ json }));
+    const res = { status } as unknown as Response;
+
+    await expect(getTenantDetails(req, res)).rejects.toMatchObject({
+      status: 404,
+      code: "TENANT_NOT_FOUND",
+    });
+  });
+});
+

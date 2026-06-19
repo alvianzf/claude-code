@@ -1,18 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/useAuth";
-import { getApiErrorCode, getApiErrorMessage } from "../api/client";
+import { getApiErrorCode, getApiErrorMessage, apiClient } from "../api/client";
 import "./LoginPage.css";
 
 export function LoginPage() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const { tenantSlug: urlTenantSlug } = useParams<{ tenantSlug?: string }>();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [tenantName, setTenantName] = useState<string>("");
+
+  useEffect(() => {
+    if (urlTenantSlug) {
+      apiClient
+        .get(`/auth/tenant/${urlTenantSlug}`)
+        .then((response) => {
+          setTenantName(response.data.name);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch tenant name:", err);
+          setTenantName("");
+        });
+    } else {
+      setTenantName("");
+    }
+  }, [urlTenantSlug]);
+
+  const savedSlug = localStorage.getItem("emilie_tenant_slug");
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const isPlatformAdminMode = searchParams.get("platform") === "true";
+
+  // Redirect users to their saved workspace login or workspace selection
+  if (!isPlatformAdminMode && !urlTenantSlug) {
+    if (savedSlug) {
+      return <Navigate to={`/${savedSlug}/login`} replace />;
+    } else {
+      return <Navigate to="/select-tenant" replace />;
+    }
+  }
+
+  // Proactively save the tenantSlug in localStorage if the user directly accesses the route
+  if (urlTenantSlug && urlTenantSlug !== savedSlug) {
+    localStorage.setItem("emilie_tenant_slug", urlTenantSlug);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,8 +87,12 @@ export function LoginPage() {
             <span className="brand-tagline">Hormonal Health</span>
           </div>
         </div>
-        <h1 className="login-title">Welcome back</h1>
-        <p className="login-subtitle">Sign in to your account</p>
+        <h1 className="login-title">
+          {tenantName ? `Sign in to ${tenantName}` : "Welcome back"}
+        </h1>
+        <p className="login-subtitle">
+          {tenantName ? "Enter your credentials to continue" : "Sign in to your account"}
+        </p>
 
         {error && (
           <div className="login-error" role="alert">
@@ -93,6 +134,22 @@ export function LoginPage() {
             {isSubmitting ? "Signing in..." : "Login"}
           </button>
         </form>
+
+        {urlTenantSlug && (
+          <div style={{ marginTop: "var(--space-4)", textAlign: "center" }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                localStorage.removeItem("emilie_tenant_slug");
+                navigate("/select-tenant");
+              }}
+              style={{ textDecoration: "underline", color: "var(--p-600)" }}
+            >
+              Not your company?
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
