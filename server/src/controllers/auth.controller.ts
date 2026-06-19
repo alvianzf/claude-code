@@ -51,7 +51,13 @@ export async function login(req: Request, res: Response): Promise<void> {
     role: user.role,
     tenantId: user.tenantId,
   });
-  res.status(200).json({ token, user: toPublicUser(user) });
+  res.status(200).json({
+    token,
+    user: {
+      ...toPublicUser(user),
+      tenantSlug: tenant ? tenant.slug : null,
+    },
+  });
 }
 
 export async function me(req: Request, res: Response): Promise<void> {
@@ -59,5 +65,17 @@ export async function me(req: Request, res: Response): Promise<void> {
   if (!user) {
     throw new ApiError(401, "UNAUTHORIZED", "User no longer exists");
   }
-  res.status(200).json({ user: toPublicUser(user) });
+  let tenantSlug: string | null = null;
+  if (user.tenantId) {
+    const tenant = await tenantStore.getTenantById(user.tenantId);
+    if (tenant) {
+      tenantSlug = tenant.slug;
+    }
+  }
+  res.status(200).json({
+    user: {
+      ...toPublicUser(user),
+      tenantSlug,
+    },
+  });
 }

@@ -15,11 +15,13 @@ function App() {
         <Routes>
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/:tenantSlug/login" element={<LoginPage />} />
+            <Route path="/:tenantSlug" element={<LoginPage />} />
           </Route>
 
           <Route element={<ProtectedRoute />}>
             <Route element={<RoleRoute allow={["admin", "user"]} />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/:tenantSlug/dashboard" element={<DashboardPage />} />
             </Route>
 
             <Route element={<RoleRoute allow={["platform_admin"]} />}>

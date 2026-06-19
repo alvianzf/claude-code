@@ -11,9 +11,14 @@ import { useAuth } from "../context/useAuth";
 export function RoleRedirect() {
   const { user } = useAuth();
 
-  if (user?.role === "platform_admin") {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === "platform_admin") {
     return <Navigate to="/admin/tenants" replace />;
   }
 
-  return <Navigate to="/dashboard" replace />;
+  const slug = user.tenantSlug || "default";
+  return <Navigate to={`/${slug}/dashboard`} replace />;
 }

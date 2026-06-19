@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useParams, Navigate } from "react-router-dom";
 import {
   Building2,
   Pencil,
@@ -28,6 +28,13 @@ const ROLE_ICONS: Record<string, typeof Shield> = {
 
 export function DashboardPage() {
   const { user: currentUser, logout } = useAuth();
+  const { tenantSlug } = useParams<{ tenantSlug?: string }>();
+
+  // Redirect if a regular tenant user tries to access a different tenant scope URL
+  if (currentUser && currentUser.role !== "platform_admin" && tenantSlug !== currentUser.tenantSlug) {
+    return <Navigate to={`/${currentUser.tenantSlug || "default"}/dashboard`} replace />;
+  }
+
   const [users, setUsers] = useState<UserPublic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

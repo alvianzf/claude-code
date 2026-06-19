@@ -8,6 +8,7 @@ export interface UserPublic {
   fullName: string;
   role: Role;
   tenantId: string | null;
+  tenantSlug?: string | null;
   createdAt: string;
   updatedAt: string;
 }
