@@ -5,6 +5,7 @@ import type { Tenant, User } from "../types.js";
 
 const getUserByUsername = vi.fn();
 const getTenantBySlug = vi.fn();
+const readTenants = vi.fn();
 
 vi.mock("../services/userStore.js", () => ({
   getUserByUsername: (...args: unknown[]) => getUserByUsername(...args),
@@ -12,6 +13,7 @@ vi.mock("../services/userStore.js", () => ({
 
 vi.mock("../services/tenantStore.js", () => ({
   getTenantBySlug: (...args: unknown[]) => getTenantBySlug(...args),
+  readTenants: (...args: unknown[]) => readTenants(...args),
 }));
 
 vi.mock("../utils/password.js", () => ({
@@ -157,10 +159,13 @@ describe("auth.controller login - validation", () => {
 describe("auth.controller getTenantDetails", () => {
   beforeEach(() => {
     getTenantBySlug.mockReset();
+    readTenants.mockReset();
   });
 
   it("returns tenant details for a valid slug", async () => {
-    getTenantBySlug.mockResolvedValue(makeTenant({ id: "tenant-1", name: "Default Tenant", slug: "default", status: "active" }));
+    readTenants.mockResolvedValue([
+      makeTenant({ id: "tenant-1", name: "Default Tenant", slug: "default", status: "active" })
+    ]);
 
     const req = { params: { slug: "default" } } as unknown as Request;
     const json = vi.fn();
@@ -169,7 +174,7 @@ describe("auth.controller getTenantDetails", () => {
 
     await getTenantDetails(req, res);
 
-    expect(getTenantBySlug).toHaveBeenCalledWith("default");
+    expect(readTenants).toHaveBeenCalled();
     expect(status).toHaveBeenCalledWith(200);
     expect(json).toHaveBeenCalledWith({
       id: "tenant-1",
@@ -179,8 +184,32 @@ describe("auth.controller getTenantDetails", () => {
     });
   });
 
-  it("throws 404 TENANT_NOT_FOUND when tenant slug is unknown", async () => {
-    getTenantBySlug.mockResolvedValue(undefined);
+  it("returns tenant details for a case-insensitive company name match", async () => {
+    readTenants.mockResolvedValue([
+      makeTenant({ id: "tenant-1", name: "Default Tenant", slug: "default", status: "active" })
+    ]);
+
+    const req = { params: { slug: "Default Tenant" } } as unknown as Request;
+    const json = vi.fn();
+    const status = vi.fn(() => ({ json }));
+    const res = { status } as unknown as Response;
+
+    await getTenantDetails(req, res);
+
+    expect(readTenants).toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json).toHaveBeenCalledWith({
+      id: "tenant-1",
+      name: "Default Tenant",
+      slug: "default",
+      status: "active",
+    });
+  });
+
+  it("throws 404 TENANT_NOT_FOUND when tenant slug or name is unknown", async () => {
+    readTenants.mockResolvedValue([
+      makeTenant({ id: "tenant-1", name: "Default Tenant", slug: "default", status: "active" })
+    ]);
 
     const req = { params: { slug: "unknown" } } as unknown as Request;
     const json = vi.fn();
@@ -191,6 +220,27 @@ describe("auth.controller getTenantDetails", () => {
       status: 404,
       code: "TENANT_NOT_FOUND",
     });
+  });
+
+  it("returns multiple matching tenants when there is a name collision", async () => {
+    readTenants.mockResolvedValue([
+      makeTenant({ id: "tenant-1", name: "Acme Corp", slug: "acme-1", status: "active" }),
+      makeTenant({ id: "tenant-2", name: "Acme Corp", slug: "acme-2", status: "active" }),
+    ]);
+
+    const req = { params: { slug: "Acme Corp" } } as unknown as Request;
+    const json = vi.fn();
+    const status = vi.fn(() => ({ json }));
+    const res = { status } as unknown as Response;
+
+    await getTenantDetails(req, res);
+
+    expect(readTenants).toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(200);
+    expect(json).toHaveBeenCalledWith([
+      { id: "tenant-1", name: "Acme Corp", slug: "acme-1", status: "active" },
+      { id: "tenant-2", name: "Acme Corp", slug: "acme-2", status: "active" },
+    ]);
   });
 });
 

@@ -85,10 +85,40 @@ export async function getTenantDetails(req: Request, res: Response): Promise<voi
   if (!slug || typeof slug !== "string") {
     throw new ApiError(400, "VALIDATION_ERROR", "Tenant slug is required");
   }
-  const tenant = await tenantStore.getTenantBySlug(slug.trim());
-  if (!tenant) {
+
+  const cleanInput = slug.trim().toLowerCase();
+  const tenants = await tenantStore.readTenants();
+  const activeTenants = tenants.filter((t) => t.status === "active");
+
+  const derivedSlug = cleanInput
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  // Find all matches
+  const matches = activeTenants.filter(
+    (t) =>
+      t.slug.toLowerCase() === cleanInput ||
+      t.name.toLowerCase() === cleanInput ||
+      t.slug.toLowerCase() === derivedSlug
+  );
+
+  if (matches.length === 0) {
     throw new ApiError(404, "TENANT_NOT_FOUND", "Workspace not found");
   }
+
+  if (matches.length > 1) {
+    res.status(200).json(
+      matches.map((t) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        status: t.status,
+      }))
+    );
+    return;
+  }
+
+  const tenant = matches[0];
   res.status(200).json({
     id: tenant.id,
     name: tenant.name,
