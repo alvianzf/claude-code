@@ -45,6 +45,7 @@
   border-radius: var(--r-md);
   object-fit: cover;
   border: 1px solid var(--border);
+  background: #fff;
   flex-shrink: 0;
 }
 
